@@ -53,7 +53,7 @@ def test_camino_feliz_y_cuerpo_de_la_peticion():
     assert cuerpo["usage"] == {"include": True}
     assert cuerpo["provider"] == {"order": ["prov"], "allow_fallbacks": False}
     rf = cuerpo["response_format"]
-    assert rf["type"] == "json_schema" and rf["json_schema"]["strict"] is True
+    assert rf["type"] == "json_schema" and rf["json_schema"]["strict"] is False
     assert rf["json_schema"]["schema"] == ESQUEMA
     partes = cuerpo["messages"][1]["content"]
     assert (
