@@ -2,12 +2,16 @@
 
 import base64
 import json
+import logging
 import os
+import time
 from typing import Any
 
 import httpx
 
 from app.agente.tipos import ErrorModelo, RespuestaModelo, TopeDeCosto
+
+log = logging.getLogger("navegante.openrouter")
 
 URL_BASE = "https://openrouter.ai/api/v1"
 
@@ -26,7 +30,7 @@ class ClienteOpenRouter:
         modelo_id: str | None = None,
         proveedores: list[str] | None = None,
         costo_max: float = 0.50,
-        timeout: float = 60.0,
+        timeout: float = 30.0,
         base_url: str = URL_BASE,
         transport: httpx.AsyncBaseTransport | None = None,
     ) -> None:
@@ -104,7 +108,9 @@ class ClienteOpenRouter:
             raise TopeDeCosto(
                 f"tope de costo alcanzado: {self.costo_acumulado:.4f} de {self.costo_max:.4f} USD"
             )
+        t0 = time.monotonic()
         resp = await self._enviar(self._cuerpo(sistema, usuario, esquema, imagen_png))
+        log.info("modelo respondió %s en %.1f s", resp.status_code, time.monotonic() - t0)
         if resp.status_code >= 400:
             detalle = ""
             try:

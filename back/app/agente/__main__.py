@@ -96,6 +96,9 @@ async def main(arg: str, reset: bool, carpeta: Path) -> None:
 
 if __name__ == "__main__":
     logging.basicConfig(level=logging.WARNING, format="aviso: %(message)s")
+    for nombre in ("navegante.openrouter", "navegante.ciclo"):
+        logging.getLogger(nombre).setLevel(logging.INFO)  # tiempos de cada llamada y paso
+    logging.getLogger("httpx").setLevel(logging.WARNING)
     args = [a for a in sys.argv[1:] if not a.startswith("--")]
     if not args:
         sys.exit("Uso: python -m app.agente E5 [--sin-reset] [carpeta_pruebas]")

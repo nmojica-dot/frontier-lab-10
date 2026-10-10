@@ -227,7 +227,9 @@ async def correr_ciclo(
                 ("Desde 3:45 no se inicia ningún compromiso; no se guardó ni cambió nada.",),
             )
 
+        t_paso = reloj()
         res = await ejecutar_herramienta(ctx, nombre, args)
+        log.info("paso %s %s: %.1f s (van %.0f s)", n, nombre, reloj() - t_paso, reloj() - inicio)
         texto = limpio(f"{nombre}: {res.observacion}")
         reg.historial.append(f"{n}. {texto[:2500]}")  # las filas leídas deben llegar completas
         if res.captura:
