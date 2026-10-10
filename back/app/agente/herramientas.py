@@ -535,8 +535,20 @@ async def buscar_registro(
 _ESQUEMA_VALOR: dict[str, Any] = {
     "type": "object",
     "additionalProperties": False,
-    "required": ["legible", "valor"],
-    "properties": {"legible": {"type": "boolean"}, "valor": {"type": "string"}},
+    "required": ["campo", "legible", "valor"],
+    "properties": {
+        "campo": {"type": "string"},
+        "legible": {"type": "boolean"},
+        "valor": {"type": "string"},
+    },
+}
+
+
+_ESQUEMA_VALORES: dict[str, Any] = {
+    "type": "object",
+    "additionalProperties": False,
+    "required": ["campos"],
+    "properties": {"campos": {"type": "array", "items": _ESQUEMA_VALOR}},
 }
 
 
@@ -580,26 +592,41 @@ async def llenar_campos(
             )
 
     leidos: dict[str, str] = {}
-    diferencias: list[str] = []
+    por_leer: list[dict[str, str]] = []
     for item in campos:
         nombre, valor = item["campo"], item["valor"]
-        x, y = await _ubicar(ctx, f"el campo «{nombre}»")
+        if isinstance(item.get("x"), int) and isinstance(item.get("y"), int):
+            x, y = item["x"], item["y"]  # el modelo ya lo vio: ahorra una llamada
+        else:
+            x, y = await _ubicar(ctx, f"el campo «{nombre}»")
         await ctx.cliente.triple_clic(x, y)  # selecciona todo el campo antes de teclear
         await ctx.cliente.teclear(valor)
         if _es_filtro_de_lectura(ctx.contrato, valor):
             leidos[nombre] = valor  # un filtro de búsqueda: no hay nada que comprobar ni guardar
-            continue
+        else:
+            por_leer.append(item)
+
+    diferencias: list[str] = []
+    if por_leer:
+        # Una sola lectura de todos los campos: los valores siguen en pantalla.
         imagen = await captura_estable(ctx)
+        nombres = ", ".join(f"«{i['campo']}»" for i in por_leer)
         datos = await _preguntar(
             ctx,
-            f"Lee el valor que muestra ahora el campo «{nombre}», tal cual (con tildes).",
-            _ESQUEMA_VALOR,
+            f"Lee el valor que muestran ahora estos campos, tal cual (con tildes): {nombres}.",
+            _ESQUEMA_VALORES,
             imagen,
         )
-        leido = str(datos.get("valor", "")) if datos.get("legible") is True else ""
-        leidos[nombre] = leido
-        if _norm(leido) != _norm(valor):
-            diferencias.append(nombre)
+        vistos = {
+            str(f.get("campo", "")): str(f.get("valor", "")) if f.get("legible") is True else ""
+            for f in datos.get("campos") or []
+            if isinstance(f, dict)
+        }
+        for item in por_leer:
+            leido = vistos.get(item["campo"], "")
+            leidos[item["campo"]] = leido
+            if _norm(leido) != _norm(item["valor"]):
+                diferencias.append(item["campo"])
 
     evidencia = {"escritos": [i["campo"] for i in campos], "leidos": leidos, "espero": espero}
     if diferencias:
@@ -797,7 +824,8 @@ HERRAMIENTAS: dict[str, Herramienta] = {
         _h(
             llenar_campos,
             "Escribe valores de la instrucción en campos (seleccionando todo antes) y los "
-            "relee para comprobar. No guarda.",
+            "relee para comprobar. No guarda. Si ves el campo, da también `x` e `y` de su centro "
+            "(1280x800): es más rápido.",
             {
                 "campos": {
                     "type": "array",
@@ -805,7 +833,7 @@ HERRAMIENTAS: dict[str, Herramienta] = {
                         "type": "object",
                         "additionalProperties": False,
                         "required": ["campo", "valor"],
-                        "properties": {"campo": _TXT, "valor": _TXT},
+                        "properties": {"campo": _TXT, "valor": _TXT, "x": _INT, "y": _INT},
                     },
                 }
             },

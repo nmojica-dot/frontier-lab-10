@@ -246,7 +246,10 @@ def test_llenar_campos_selecciona_todo_teclea_y_relee():
         contrato = ContratoCambios(
             valores_permitidos={"Ciudad": ("Medellín",)}, verbos_permitidos=frozenset({"guardar"})
         )
-        resp = [punto(200, 300), {"legible": True, "valor": "Medellín"}]
+        resp = [
+            punto(200, 300),
+            {"campos": [{"campo": "Ciudad", "legible": True, "valor": "Medellín"}]},
+        ]
         async with entorno(resp, contrato) as (ctx, srv, _):
             r = await ejecutar(
                 ctx, "llenar_campos", {"campos": [{"campo": "Ciudad", "valor": "Medellín"}]}
@@ -259,13 +262,52 @@ def test_llenar_campos_selecciona_todo_teclea_y_relee():
     correr(escenario)
 
 
+def test_llenar_campos_varios_con_coordenadas_lee_todo_en_una_llamada():
+    async def escenario():
+        contrato = ContratoCambios(
+            valores_permitidos={"nombre": ("Ana",), "telefono": ("3001112233",)},
+            verbos_permitidos=frozenset({"guardar"}),
+        )
+        lectura = {
+            "campos": [
+                {"campo": "nombre", "legible": True, "valor": "Ana"},
+                {"campo": "telefono", "legible": True, "valor": "3001112233"},
+            ]
+        }
+        async with entorno([lectura], contrato) as (ctx, _, modelo):
+            r = await ejecutar(
+                ctx,
+                "llenar_campos",
+                {
+                    "campos": [
+                        {"campo": "nombre", "valor": "Ana", "x": 100, "y": 100},
+                        {"campo": "telefono", "valor": "3001112233", "x": 100, "y": 150},
+                    ]
+                },
+            )
+            assert r.ok and len(modelo.llamadas) == 1
+
+    correr(escenario)
+
+
 def test_llenar_campos_acepta_el_rotulo_de_pantalla_si_el_valor_sale_de_la_instruccion():
     async def escenario():
         contrato = ContratoCambios(
             valores_permitidos={"nombre": ("Papelería Los Andes",), "ciudad": ("Pereira",)},
             verbos_permitidos=frozenset({"guardar"}),
         )
-        resp = [punto(200, 300), {"legible": True, "valor": "Papelería Los Andes"}]
+        resp = [
+            punto(200, 300),
+            {
+                "campos": [
+                    {
+                        "campo": "Razón social o nombre",
+                        "legible": True,
+                        "valor": "Papelería Los Andes",
+                    }
+                ]
+            },
+        ]
         async with entorno(resp, contrato) as (ctx, _, _):
             r = await ejecutar(
                 ctx,
@@ -282,7 +324,10 @@ def test_llenar_campos_detecta_que_el_valor_leido_no_coincide():
         contrato = ContratoCambios(
             valores_permitidos={"Ciudad": ("Cali",)}, verbos_permitidos=frozenset({"guardar"})
         )
-        resp = [punto(1, 1), {"legible": True, "valor": "Cali Cali"}]
+        resp = [
+            punto(1, 1),
+            {"campos": [{"campo": "Ciudad", "legible": True, "valor": "Cali Cali"}]},
+        ]
         async with entorno(resp, contrato) as (ctx, _, _):
             r = await ejecutar(
                 ctx, "llenar_campos", {"campos": [{"campo": "Ciudad", "valor": "Cali"}]}
