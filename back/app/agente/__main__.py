@@ -21,6 +21,7 @@ import httpx
 from pydantic import SecretStr
 
 from app.agente.ciclo import ejecutar_tarea
+from app.agente.openrouter import ClienteOpenRouter
 from app.cuadros import Cuadros
 from app.store import Store
 
@@ -57,6 +58,10 @@ async def main(arg: str, reset: bool, carpeta: Path) -> None:
     store = Store(":memory:")
     store.crear_tarea("local", caso["instruccion"], "api", None)
     cuadros = Cuadros(tempfile.mkdtemp(prefix="navegante-capturas-"))
+    modelo = ClienteOpenRouter(
+        os.environ["OPENROUTER_API_KEY"],
+        costo_max=float(os.environ.get("COSTO_MAX_POR_TAREA", "0.50")),
+    )
     inicio = time.monotonic()
     await ejecutar_tarea(
         task_id="local",
@@ -68,6 +73,7 @@ async def main(arg: str, reset: bool, carpeta: Path) -> None:
         cuadros=cuadros,
         api_key=os.environ["OPENROUTER_API_KEY"],
         costo_max=float(os.environ.get("COSTO_MAX_POR_TAREA", "0.50")),
+        modelo=modelo,
     )
     final = store.obtener("local")
     print(f"\n--- {caso['id']}: {caso['instruccion']}")
@@ -78,7 +84,11 @@ async def main(arg: str, reset: bool, carpeta: Path) -> None:
     print(f"resumen:\n{final['resumen']}")
     if "respuesta_esperada" in caso:
         print(f"respuesta esperada: {caso['respuesta_esperada']}")
-    print(f"tiempo: {time.monotonic() - inicio:.0f} s")
+    n_pasos = sum(1 for e in store.eventos_desde("local") if e["event"] == "paso")
+    print(
+        f"modelo: {modelo.modelo_id} | tiempo: {time.monotonic() - inicio:.0f} s | "
+        f"costo: US$ {modelo.costo_acumulado:.4f} | pasos: {n_pasos}"
+    )
     if token and caso["id"] != "libre":
         print("check:", _llamar("POST", _base_http(url) + "/__check", token, caso))
 
