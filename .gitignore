@@ -6,3 +6,5 @@ archivo/
 node_modules/
 __pycache__/
 .venv/
+docs/pruebas-x1/
+docs/sigecom-antes/

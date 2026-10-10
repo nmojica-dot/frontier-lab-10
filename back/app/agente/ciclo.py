@@ -73,6 +73,8 @@ y la instrucción no los distingue, llama a `fallar` nombrando los datos de cada
 - Si la instrucción hace una pregunta, responde en `terminar` solo con el dato exacto.
 - Si no puedes comprobar el resultado o no encuentras el camino, llama a `fallar` y di \
 qué viste. No inventes.
+- Si la pantalla muestra claves, contraseñas, tokens o algo marcado como confidencial, \
+nunca lo copies en tus razones, observaciones, resumen ni respuesta.
 - Sé breve: pocas decisiones, cada una con un propósito."""
 
 
