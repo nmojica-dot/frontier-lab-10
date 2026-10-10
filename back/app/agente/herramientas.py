@@ -386,8 +386,9 @@ async def leer_tabla(ctx: Contexto, *, espero: str | None = None) -> ResultadoHe
 
 
 def _tabla_texto(filas: list[dict[str, str]], limite: int = 6000) -> str:
-    """Las filas en texto compacto, para que el modelo las vea, y un conteo por Estado
-    calculado por el código: contar 45 filas a ojo es donde se equivocan los modelos."""
+    """Los conteos calculados por el código (contar 45 filas a ojo es donde se equivocan los
+    modelos) y luego las filas en texto compacto. Los conteos van primero: el historial del
+    ciclo corta el texto y lo que va al final se pierde."""
     if not filas:
         return "(sin filas)"
     columnas = list(filas[0])
@@ -396,15 +397,25 @@ def _tabla_texto(filas: list[dict[str, str]], limite: int = 6000) -> str:
     if len(texto) > limite:
         texto = texto[:limite] + "\n(...recortado)"
     col_estado = next((c for c in columnas if _clave(c) == "estado"), None)
-    if col_estado:
-        conteo: dict[str, int] = {}
+    if not col_estado:
+        return texto
+    por_estado: dict[str, int] = {}
+    for f in filas:
+        valor = f.get(col_estado, "").strip()
+        por_estado[valor] = por_estado.get(valor, 0) + 1
+    conteos = "Conteo por Estado (calculado): " + ", ".join(
+        f"{k}={v}" for k, v in sorted(por_estado.items())
+    )
+    col_cliente = next((c for c in columnas if _clave(c) == "cliente"), None)
+    if col_cliente:
+        por_par: dict[str, int] = {}
         for f in filas:
-            valor = f.get(col_estado, "").strip()
-            conteo[valor] = conteo.get(valor, 0) + 1
-        texto += "\nConteo por Estado (calculado): " + ", ".join(
-            f"{k}={v}" for k, v in sorted(conteo.items())
+            par = f"{f.get(col_cliente, '').strip()} / {f.get(col_estado, '').strip()}"
+            por_par[par] = por_par.get(par, 0) + 1
+        conteos += "\nConteo por Cliente / Estado (calculado): " + "; ".join(
+            f"{k}={v}" for k, v in sorted(por_par.items())
         )
-    return texto
+    return conteos + "\n" + texto
 
 
 def _clave(texto: str) -> str:

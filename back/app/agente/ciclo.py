@@ -85,8 +85,11 @@ aparece una pestaña más. No repitas el clic: pasa a la pestaña nueva con la h
 - Si aparece un aviso o diálogo inesperado (por ejemplo «Novedades de la versión»), ciérralo \
 con su botón (Entendido, Aceptar, ×) y comprueba en qué pantalla quedaste: puede haberte \
 devuelto al inicio, y entonces vuelves a navegar sin repetir lo que ya hiciste.
-- Al contar filas, usa el «Conteo por Estado (calculado)» que devuelven `buscar_registro` y \
-`leer_tabla`; no cuentes a ojo. «Vencida» es el valor de la columna Estado.
+- Al contar filas, usa los conteos calculados («por Estado» y «por Cliente / Estado») que \
+devuelven `buscar_registro` y `leer_tabla`, y están al principio de su resultado; no cuentes \
+a ojo y no vuelvas a leer la tabla: ya tienes todas las páginas. «Vencida» es el valor de la \
+columna Estado. Si hay clientes de nombre parecido (p. ej. «X» y «X e Hijos»), cuenta solo el \
+nombre exacto de la instrucción y di en el resumen cuántos excluiste.
 - Sé breve: pocas decisiones, cada una con un propósito."""
 
 
