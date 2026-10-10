@@ -73,7 +73,10 @@ Devuelve JSON con (las tres listas son de pares {"campo": ..., "valor": ...}):
 - valores_a_escribir: el valor nuevo de cada campo, copiado TEXTUAL de la instrucción
   (mismos caracteres). Lista vacía si no se escribe nada.
 - filtros: solo para exportar o cruzar, campo y criterio (puede ser calculado,
-  p. ej. fechas ISO). Lista vacía en otros casos.
+  p. ej. fechas). Lista vacía en otros casos. Para un periodo (un mes, un año) usa
+  siempre DOS filtros, `fecha_desde` y `fecha_hasta`, con fechas dd/mm/aaaa que son las
+  que pide la pantalla (septiembre de 2026 → 01/09/2026 y 30/09/2026). El estado va en
+  el filtro `estado` con la palabra de la instrucción (entregados → Entregado).
 
 Ejemplo. Instrucción: "Cambia el teléfono de Ana Torres a 3014445566."
 {"tipo": "cambiar", "registro_objetivo": [{"campo": "nombre", "valor": "Ana Torres"}],

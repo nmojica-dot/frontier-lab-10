@@ -89,10 +89,14 @@ def test_e4_exportar_con_filtros_calculados():
     c = _fijar(
         "Exporta el reporte de pedidos entregados en septiembre de 2026.",
         tipo="exportar",
-        filtros={"estado": "Entregado", "desde": "2026-09-01", "hasta": "2026-09-30"},
+        filtros={
+            "estado": "Entregado",
+            "fecha_desde": "01/09/2026",
+            "fecha_hasta": "30/09/2026",
+        },
     )
     assert c.verbos_permitidos == {"exportar"}
-    assert c.valores_permitidos["desde"] == ("2026-09-01",)
+    assert c.valores_permitidos["fecha_desde"] == ("01/09/2026",)
 
 
 def test_e5_homonimos_no_inventa_documento():
