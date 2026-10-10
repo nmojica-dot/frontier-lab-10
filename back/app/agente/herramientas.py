@@ -288,12 +288,13 @@ _PUNTO_NULO: dict[str, Any] = {
 _ESQUEMA_TABLA: dict[str, Any] = {
     "type": "object",
     "additionalProperties": False,
-    "required": ["filas_visibles", "filas", "anterior", "siguiente"],
+    "required": ["columnas", "filas_visibles", "filas", "anterior", "siguiente"],
     "properties": {
+        "columnas": {"type": "array", "items": {"type": "string"}},
         "filas_visibles": {"type": "integer"},
         "filas": {
             "type": "array",
-            "items": {"type": "object", "additionalProperties": {"type": "string"}},
+            "items": {"type": "array", "items": {"type": "string"}},
         },
         "anterior": _PUNTO_NULO,
         "siguiente": _PUNTO_NULO,
@@ -301,21 +302,25 @@ _ESQUEMA_TABLA: dict[str, Any] = {
 }
 
 _PREGUNTA_TABLA = (
-    "Lee la tabla de resultados de la captura. Primero cuenta las filas de datos que se ven "
-    "(sin el encabezado) y ponlo en `filas_visibles`. Luego da TODAS esas filas en `filas`, "
-    "sin saltarte ninguna: una por registro, con el nombre de la columna como clave y el "
-    "texto exacto como valor (respeta tildes). En `anterior` y `siguiente` da el centro del "
+    "Lee la tabla de resultados de la captura. En `columnas` pon los nombres del encabezado, "
+    "en orden. Cuenta las filas de datos que se ven (sin el encabezado) y ponlo en "
+    "`filas_visibles`. Luego da TODAS esas filas en `filas`, sin saltarte ninguna: cada fila "
+    "es una lista con el texto exacto de cada celda en el mismo orden que `columnas` "
+    "(respeta tildes). En `anterior` y `siguiente` da el centro del "
     "botón de página anterior / siguiente si está activo; si no existe o está deshabilitado "
     "(gris), null."
 )
 
 
 def _filas_de(datos: dict[str, Any]) -> list[dict[str, str]]:
-    return [
-        {str(k): str(v) for k, v in f.items()}
-        for f in datos.get("filas", [])
-        if isinstance(f, dict)
-    ]
+    columnas = [str(c) for c in datos.get("columnas") or []]
+    filas: list[dict[str, str]] = []
+    for f in datos.get("filas", []):
+        if isinstance(f, dict):
+            filas.append({str(k): str(v) for k, v in f.items()})
+        elif isinstance(f, list) and columnas:
+            filas.append({c: str(v) for c, v in zip(columnas, f, strict=False)})
+    return filas
 
 
 async def _leer_pagina(ctx: Contexto) -> tuple[list[dict[str, str]], dict[str, Any]]:

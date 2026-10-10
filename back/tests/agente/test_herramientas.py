@@ -137,6 +137,23 @@ def test_leer_tabla_recorre_todas_las_paginas():
     correr(escenario)
 
 
+def test_leer_tabla_acepta_filas_como_listas_de_celdas():
+    async def escenario():
+        pag = {
+            "columnas": ["Código", "Estado"],
+            "filas_visibles": 2,
+            "filas": [["FV-1", "Vencida"], ["FV-2", "Pagada"]],
+            "anterior": None,
+            "siguiente": None,
+        }
+        async with entorno([pag]) as (ctx, _, _):
+            r = await ejecutar(ctx, "leer_tabla", {})
+            assert r.evidencia["filas"][1] == {"Código": "FV-2", "Estado": "Pagada"}
+            assert "Vencida=1" in r.observacion
+
+    correr(escenario)
+
+
 def test_leer_tabla_se_detiene_si_siguiente_no_cambia_la_pagina():
     async def escenario():
         pag = tabla({"nombre": "A"}, siguiente={"x": 900, "y": 700})
