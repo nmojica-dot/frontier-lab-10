@@ -90,6 +90,10 @@ devuelven `buscar_registro` y `leer_tabla`, y están al principio de su resultad
 a ojo y no vuelvas a leer la tabla: ya tienes todas las páginas. «Vencida» es el valor de la \
 columna Estado. Si hay clientes de nombre parecido (p. ej. «X» y «X e Hijos»), cuenta solo el \
 nombre exacto de la instrucción y di en el resumen cuántos excluiste.
+- Para crear un registro, antes de abrir el formulario busca con `buscar_registro` por el \
+nombre o documento de la instrucción: si ya existe, no lo crees (falla nombrando el existente); \
+si no hay coincidencias, crea. Sin esa búsqueda, `confirmar` no deja guardar. En los campos \
+desplegables (como Ciudad) no teclees: haz clic en el campo y luego en la opción.
 - Sé breve: pocas decisiones, cada una con un propósito."""
 
 

@@ -118,3 +118,14 @@ def test_registro_inexistente():
     c = ContratoCambios(registro_objetivo={"documento": "000"})
     d, quedan = desempatar(c, ANAS, "chat")
     assert d.fallida and quedan == []
+
+
+def test_crear_exige_haber_comprobado_que_no_existe():
+    contrato = ContratoCambios(verbos_permitidos=frozenset({"guardar"}), crea=True)
+    guardar = Accion(tipo="comprometer", verbo="guardar")
+    sin_buscar = validar_accion(contrato, guardar, EstadoCriterio(), "api")
+    assert not sin_buscar.permitida and not sin_buscar.fallida  # se puede buscar y reintentar
+    cero = EstadoCriterio(registros_coincidentes=0)
+    assert validar_accion(contrato, guardar, cero, "api").permitida
+    existe = validar_accion(contrato, guardar, EstadoCriterio(registros_coincidentes=1), "api")
+    assert not existe.permitida and existe.fallida and "duplicado" in existe.motivo

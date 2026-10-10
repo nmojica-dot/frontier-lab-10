@@ -179,4 +179,5 @@ def _armar(d: dict[str, Any], instruccion: str) -> ContratoCambios:
         valores_permitidos=permitidos,
         verbos_permitidos=verbos,
         pregunta=pregunta if tipo in ("consultar", "cruzar") else None,
+        crea=tipo == "crear",
     )

@@ -53,7 +53,15 @@ def _validar_compromiso(
     if verbo in estado.compromisos:
         return _no(f"'{verbo}' ya se intentó una vez; no se repite a ciegas.")
     if estado.registros_coincidentes is None:
-        return _no(f"No se verificó el registro antes de '{verbo}'.")
+        # Al crear aún se puede buscar y reintentar; en lo demás, sin verificar la tarea cierra.
+        return _no(f"No se verificó el registro antes de '{verbo}'.", fallida=not contrato.crea)
+    if contrato.crea and verbo == "guardar":
+        if estado.registros_coincidentes > 0:
+            return _no(
+                f"Ya existe {estado.registros_coincidentes} registro con esos datos: "
+                "no se crea un duplicado."
+            )
+        return _ok()
     if estado.registros_coincidentes != 1:
         return _no(
             f"Para '{verbo}' se necesita exactamente un registro verificado y hay "

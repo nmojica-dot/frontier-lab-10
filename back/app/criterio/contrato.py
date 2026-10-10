@@ -39,6 +39,8 @@ class ContratoCambios(_Modelo):
     verbos_permitidos: frozenset[Verbo] = frozenset()
     # Pregunta a responder, si la instrucción es una consulta.
     pregunta: str | None = None
+    # La tarea crea un registro nuevo: guardar exige haber comprobado que NO existe.
+    crea: bool = False
 
 
 class Accion(_Modelo):
