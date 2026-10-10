@@ -75,6 +75,10 @@ y la instrucción no los distingue, llama a `fallar` nombrando los datos de cada
 qué viste. No inventes.
 - Si la pantalla muestra claves, contraseñas, tokens o algo marcado como confidencial, \
 nunca lo copies en tus razones, observaciones, resumen ni respuesta.
+- La app corre dentro de un navegador y sus enlaces pueden abrirse en una pestaña NUEVA que \
+queda en segundo plano. Señal: haces clic en un enlace o menú, la página no cambia y arriba \
+aparece una pestaña más. No repitas el clic: pasa a la pestaña nueva con la herramienta \
+`tecla` y `ctrl+Tab` (la que está justo a la derecha de la actual), toma una captura y sigue ahí.
 - Sé breve: pocas decisiones, cada una con un propósito."""
 
 
