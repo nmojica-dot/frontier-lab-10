@@ -139,6 +139,22 @@ async def _ubicar(ctx: Contexto, descripcion: str) -> tuple[int, int]:
     return x, y
 
 
+async def _punto(ctx: Contexto, descripcion: str, x: int | None, y: int | None) -> tuple[int, int]:
+    """Usa las coordenadas que dio el modelo en su decisión (una llamada menos por paso);
+    si no las dio, o no son válidas, las ubica con una segunda llamada."""
+    ok = (
+        isinstance(x, int)
+        and isinstance(y, int)
+        and not isinstance(x, bool)
+        and not isinstance(y, bool)
+        and 0 <= x < ctx.cliente.ancho
+        and 0 <= y < ctx.cliente.alto
+    )
+    if ok:
+        return x, y  # type: ignore[return-value]
+    return await _ubicar(ctx, descripcion)
+
+
 async def _resultado(
     ctx: Contexto,
     ok: bool,
@@ -217,19 +233,29 @@ def _exige_confirmar(verbos: set[str]) -> ResultadoHerramienta:
 
 
 async def clic(
-    ctx: Contexto, *, descripcion: str, espero: str | None = None
+    ctx: Contexto,
+    *,
+    descripcion: str,
+    x: int | None = None,
+    y: int | None = None,
+    espero: str | None = None,
 ) -> ResultadoHerramienta:
     if verbos := _verbos_en(descripcion):
         return _exige_confirmar(verbos)
-    x, y = await _ubicar(ctx, descripcion)
+    x, y = await _punto(ctx, descripcion, x, y)
     await ctx.cliente.clic(x, y)
     return await _resultado(ctx, True, f"Clic en: {descripcion}.", {"espero": espero})
 
 
 async def hover(
-    ctx: Contexto, *, descripcion: str, espero: str | None = None
+    ctx: Contexto,
+    *,
+    descripcion: str,
+    x: int | None = None,
+    y: int | None = None,
+    espero: str | None = None,
 ) -> ResultadoHerramienta:
-    x, y = await _ubicar(ctx, descripcion)
+    x, y = await _punto(ctx, descripcion, x, y)
     await ctx.cliente.hover(x, y)
     return await _resultado(ctx, True, f"Mouse sobre: {descripcion}.", {"espero": espero})
 
@@ -311,9 +337,31 @@ async def leer_tabla(ctx: Contexto, *, espero: str | None = None) -> ResultadoHe
     return await _resultado(
         ctx,
         True,
-        f"Tabla leída: {len(filas)} filas en {paginas} páginas.",
+        f"Tabla leída: {len(filas)} filas en {paginas} páginas.\n{_tabla_texto(filas)}",
         {"filas": filas, "paginas": paginas, "espero": espero},
     )
+
+
+def _tabla_texto(filas: list[dict[str, str]], limite: int = 6000) -> str:
+    """Las filas en texto compacto, para que el modelo las vea, y un conteo por Estado
+    calculado por el código: contar 45 filas a ojo es donde se equivocan los modelos."""
+    if not filas:
+        return "(sin filas)"
+    columnas = list(filas[0])
+    lineas = [" | ".join(columnas)] + [" | ".join(f.get(c, "") for c in columnas) for f in filas]
+    texto = "\n".join(lineas)
+    if len(texto) > limite:
+        texto = texto[:limite] + "\n(...recortado)"
+    col_estado = next((c for c in columnas if _clave(c) == "estado"), None)
+    if col_estado:
+        conteo: dict[str, int] = {}
+        for f in filas:
+            valor = f.get(col_estado, "").strip()
+            conteo[valor] = conteo.get(valor, 0) + 1
+        texto += "\nConteo por Estado (calculado): " + ", ".join(
+            f"{k}={v}" for k, v in sorted(conteo.items())
+        )
+    return texto
 
 
 def _clave(texto: str) -> str:
@@ -348,7 +396,13 @@ def _es_filtro_de_lectura(contrato: ContratoCambios, valor: str) -> bool:
 
 
 async def buscar_registro(
-    ctx: Contexto, *, campo: str, texto: str, espero: str | None = None
+    ctx: Contexto,
+    *,
+    campo: str,
+    texto: str,
+    x: int | None = None,
+    y: int | None = None,
+    espero: str | None = None,
 ) -> ResultadoHerramienta:
     """Filtra por `campo` con `texto` tal cual y sin tildes (la app distingue tildes),
     junta los resultados de todas las páginas y cuenta los candidatos."""
@@ -357,9 +411,9 @@ async def buscar_registro(
     candidatos: list[dict[str, str]] = []
     vistos: set[tuple[tuple[str, str], ...]] = set()
     for variante in variantes:
-        x, y = await _ubicar(ctx, f"el campo de filtro «{campo}»")
-        await ctx.cliente.clic(x, y)
-        await ctx.cliente.tecla("ctrl+a")  # sin esto el texto se concatena al anterior
+        px, py = await _punto(ctx, f"el campo de filtro «{campo}»", x, y)
+        await ctx.cliente.clic(px, py)
+        await ctx.cliente.borrar_campo()  # sin esto el texto se concatena al anterior
         await ctx.cliente.teclear(variante)
         await ctx.cliente.tecla("enter")
         filas, _ = await _leer_paginas(ctx)
@@ -369,7 +423,10 @@ async def buscar_registro(
                 vistos.add(clave)
                 candidatos.append(fila)
 
-    if ctx.contrato.registro_objetivo:
+    # El desempate de homónimos solo importa si la tarea puede cambiar algo. En una consulta
+    # las filas son datos (p. ej. las facturas de un cliente), no registros que haya que
+    # distinguir, y exigir que coincidan con el objetivo las descartaba todas.
+    if ctx.contrato.registro_objetivo and ctx.contrato.verbos_permitidos:
         decision, restantes = desempatar(ctx.contrato, candidatos, ctx.origen)
     else:
         decision, restantes = None, candidatos
@@ -386,7 +443,7 @@ async def buscar_registro(
         ctx,
         True,
         f"{len(candidatos)} candidatos para «{texto}» en {campo}; "
-        f"{len(restantes)} coinciden con el registro objetivo.",
+        f"{len(restantes)} coinciden con el registro objetivo.\n{_tabla_texto(candidatos)}",
         evidencia,
     )
 
@@ -428,8 +485,11 @@ async def llenar_campos(
         nombre, valor = item["campo"], item["valor"]
         x, y = await _ubicar(ctx, f"el campo «{nombre}»")
         await ctx.cliente.clic(x, y)
-        await ctx.cliente.tecla("ctrl+a")
+        await ctx.cliente.borrar_campo()
         await ctx.cliente.teclear(valor)
+        if _es_filtro_de_lectura(ctx.contrato, valor):
+            leidos[nombre] = valor  # un filtro de búsqueda: no hay nada que comprobar ni guardar
+            continue
         imagen = await captura_estable(ctx)
         datos = await _preguntar(
             ctx,
@@ -558,6 +618,7 @@ def _args(props: dict[str, Any], opcionales: tuple[str, ...], *, espero: bool) -
 
 
 _TXT = {"type": "string"}
+_INT = {"type": "integer"}
 
 
 @dataclass(frozen=True)
@@ -592,20 +653,26 @@ HERRAMIENTAS: dict[str, Herramienta] = {
         _h(ver, "Toma una captura cuando la pantalla ya repintó. Con `espero`, comprueba.", {}),
         _h(
             clic,
-            "Clic sobre un elemento descrito en palabras (no con coordenadas).",
-            {"descripcion": _TXT},
+            "Clic sobre un elemento descrito en palabras. Si lo ves en la captura, da también "
+            "`x` e `y` (píxeles, pantalla de 1280x800): es más rápido.",
+            {"descripcion": _TXT, "x": _INT, "y": _INT},
+            opcionales=("x", "y"),
         ),
         _h(
             hover,
-            "Pasa el mouse sobre un elemento (los submenús abren así) y espera.",
-            {"descripcion": _TXT},
+            "Pasa el mouse sobre un elemento (los submenús abren así) y espera. `x` e `y` "
+            "opcionales, como en `clic`.",
+            {"descripcion": _TXT, "x": _INT, "y": _INT},
+            opcionales=("x", "y"),
         ),
         _h(tecla, "Pulsa una tecla o combinación: enter, tab, ctrl+a...", {"nombre": _TXT}),
         _h(
             buscar_registro,
             "Filtra por un campo con el texto (tal cual y sin tildes), lee todas las "
-            "páginas y cuenta los candidatos.",
-            {"campo": _TXT, "texto": _TXT},
+            "páginas y devuelve las filas y su conteo. `x` e `y` opcionales: el centro del "
+            "campo de filtro.",
+            {"campo": _TXT, "texto": _TXT, "x": _INT, "y": _INT},
+            opcionales=("x", "y"),
         ),
         _h(
             llenar_campos,

@@ -225,13 +225,34 @@ class ClienteRFB:
         """Una tecla o combinación: `"enter"`, `"tab"`, `"ctrl+a"`, `"ctrl+c"`."""
         simbolos = keysyms_de_combinacion(nombre)
 
+        pausa = max(self._pausa_tecla, 0.05)  # el servidor pierde combinaciones demasiado juntas
+
         async def pulsar() -> None:
             for s in simbolos:
                 await self._tecla(s, True)
+                await asyncio.sleep(pausa)
             for s in reversed(simbolos):
                 await self._tecla(s, False)
+                await asyncio.sleep(pausa)
 
         await self._ejecutar(pulsar, repetible=False)
+        await asyncio.sleep(self._espera)
+
+    async def borrar_campo(self, cuantos: int = 80) -> None:
+        """Vacía el campo con foco sin usar modificadores: End y `cuantos` BackSpace.
+
+        `ctrl+a` no seleccionó el texto en el navegador remoto y lo nuevo se concatenó
+        a lo viejo ("Ferretería RuFeFerretería Ruiz"), así que no se depende de él."""
+        fin = keysyms_de_combinacion("end")[0]
+        borrar = keysyms_de_combinacion("backspace")[0]
+
+        async def vaciar() -> None:
+            for s in (fin, *([borrar] * cuantos)):
+                await self._tecla(s, True)
+                await self._tecla(s, False)
+                await asyncio.sleep(self._pausa_tecla)
+
+        await self._ejecutar(vaciar, repetible=False)
         await asyncio.sleep(self._espera)
 
     # --- núcleo ---

@@ -1,4 +1,4 @@
-from app.agente.herramientas import _es_filtro_de_lectura, _literal_del_contrato
+from app.agente.herramientas import _es_filtro_de_lectura, _literal_del_contrato, _tabla_texto
 from app.criterio.contrato import ContratoCambios
 
 CONSULTA = ContratoCambios(registro_objetivo={"nombre": "Ferretería Ruiz"}, pregunta="¿cuántas?")
@@ -30,3 +30,20 @@ def test_en_una_consulta_no_se_escribe_un_valor_ajeno():
 
 def test_si_la_tarea_puede_guardar_se_exige_la_validacion_estricta():
     assert not _es_filtro_de_lectura(CAMBIO, "3014445566")
+
+
+def test_la_tabla_en_texto_trae_las_filas_y_un_conteo_calculado_por_estado():
+    filas = [
+        {"Código": "F1", "Cliente": "Ferretería Ruiz", "Estado": "Vencida"},
+        {"Código": "F2", "Cliente": "Ferretería Ruiz", "Estado": "Pagada"},
+        {"Código": "F3", "Cliente": "Ferretería Ruiz", "Estado": "Vencida"},
+    ]
+    texto = _tabla_texto(filas)
+    assert "F1 | Ferretería Ruiz | Vencida" in texto
+    assert "Pagada=1, Vencida=2" in texto
+
+
+def test_tabla_vacia_y_tabla_larga_recortada():
+    assert _tabla_texto([]) == "(sin filas)"
+    muchas = [{"Código": f"F{i}", "Detalle": "x" * 80} for i in range(200)]
+    assert "(...recortado)" in _tabla_texto(muchas)

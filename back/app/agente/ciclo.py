@@ -82,6 +82,11 @@ nunca lo copies en tus razones, observaciones, resumen ni respuesta.
 queda en segundo plano. Señal: haces clic en un enlace o menú, la página no cambia y arriba \
 aparece una pestaña más. No repitas el clic: pasa a la pestaña nueva con la herramienta \
 `tecla` y `ctrl+Tab` (la que está justo a la derecha de la actual), toma una captura y sigue ahí.
+- Si aparece un aviso o diálogo inesperado (por ejemplo «Novedades de la versión»), ciérralo \
+con su botón (Entendido, Aceptar, ×) y comprueba en qué pantalla quedaste: puede haberte \
+devuelto al inicio, y entonces vuelves a navegar sin repetir lo que ya hiciste.
+- Al contar filas, usa el «Conteo por Estado (calculado)» que devuelven `buscar_registro` y \
+`leer_tabla`; no cuentes a ojo. «Vencida» es el valor de la columna Estado.
 - Sé breve: pocas decisiones, cada una con un propósito."""
 
 
@@ -224,7 +229,7 @@ async def correr_ciclo(
 
         res = await ejecutar_herramienta(ctx, nombre, args)
         texto = limpio(f"{nombre}: {res.observacion}")
-        reg.historial.append(f"{n}. {texto[:300]}")
+        reg.historial.append(f"{n}. {texto[:2500]}")  # las filas leídas deben llegar completas
         if res.captura:
             captura = res.captura
         n_cap = guardar(n, res.captura)

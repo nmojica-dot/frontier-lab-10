@@ -159,7 +159,9 @@ def test_leer_tabla_no_devuelve_lectura_parcial_si_pasa_el_tope():
 
 def test_buscar_registro_prueba_con_y_sin_tilde_y_cuenta():
     async def escenario():
-        contrato = ContratoCambios(registro_objetivo={"nombre": "José Pérez"})
+        contrato = ContratoCambios(
+            registro_objetivo={"nombre": "José Pérez"}, verbos_permitidos=frozenset({"guardar"})
+        )
         resp = [
             punto(100, 100),
             tabla({"nombre": "José Pérez", "nit": "1"}),
@@ -173,14 +175,16 @@ def test_buscar_registro_prueba_con_y_sin_tilde_y_cuenta():
             assert len(r.evidencia["candidatos"]) == 2  # sin duplicar la fila repetida
             assert ctx.registros_coincidentes == 1
             assert "2 candidatos" in r.observacion
-            assert CTRL in [e[1] for e in srv.eventos]  # seleccionó todo antes de teclear
+            assert 0xFF08 in [e[1] for e in srv.eventos]  # vació el campo antes de teclear
 
     correr(escenario)
 
 
 def test_buscar_registro_homonimos_deja_dos_coincidentes():
     async def escenario():
-        contrato = ContratoCambios(registro_objetivo={"nombre": "Ana Torres"})
+        contrato = ContratoCambios(
+            registro_objetivo={"nombre": "Ana Torres"}, verbos_permitidos=frozenset({"guardar"})
+        )
         filas = tabla({"nombre": "Ana Torres", "doc": "1"}, {"nombre": "Ana Torres", "doc": "2"})
         resp = [punto(1, 1), filas]  # sin tilde en el texto: una sola variante
         async with entorno(resp, contrato) as (ctx, _, _):
@@ -193,7 +197,9 @@ def test_buscar_registro_homonimos_deja_dos_coincidentes():
 
 def test_llenar_campos_selecciona_todo_teclea_y_relee():
     async def escenario():
-        contrato = ContratoCambios(valores_permitidos={"Ciudad": ("Medellín",)})
+        contrato = ContratoCambios(
+            valores_permitidos={"Ciudad": ("Medellín",)}, verbos_permitidos=frozenset({"guardar"})
+        )
         resp = [punto(200, 300), {"legible": True, "valor": "Medellín"}]
         async with entorno(resp, contrato) as (ctx, srv, _):
             r = await ejecutar(
@@ -201,15 +207,20 @@ def test_llenar_campos_selecciona_todo_teclea_y_relee():
             )
             assert r.ok and r.evidencia["leidos"] == {"Ciudad": "Medellín"}
             teclas = [e[1] for e in srv.eventos if e[0] == "tecla_abajo"]
-            assert teclas[0] == CTRL  # ctrl+a antes de la primera letra
-            assert len(teclas) == 1 + 1 + len("Medellín")
+            assert (
+                teclas[0] == 0xFF57
+            )  # End, luego 80 BackSpace: el campo se vacía antes de teclear
+            assert teclas[1:81] == [0xFF08] * 80
+            assert len(teclas) == 1 + 80 + len("Medellín")
 
     correr(escenario)
 
 
 def test_llenar_campos_detecta_que_el_valor_leido_no_coincide():
     async def escenario():
-        contrato = ContratoCambios(valores_permitidos={"Ciudad": ("Cali",)})
+        contrato = ContratoCambios(
+            valores_permitidos={"Ciudad": ("Cali",)}, verbos_permitidos=frozenset({"guardar"})
+        )
         resp = [punto(1, 1), {"legible": True, "valor": "Cali Cali"}]
         async with entorno(resp, contrato) as (ctx, _, _):
             r = await ejecutar(
