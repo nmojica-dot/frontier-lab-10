@@ -22,7 +22,13 @@ def cuerpo_tarea(**cambios) -> dict:
 
 @pytest.fixture
 def settings(tmp_path) -> Settings:
-    return Settings(api_token=TOKEN, db_path=str(tmp_path / "t.db"), worker_demora=0)
+    return Settings(
+        api_token=TOKEN,
+        db_path=str(tmp_path / "t.db"),
+        cuadros_dir=str(tmp_path / "capturas"),
+        worker_demora=0,
+        sse_latido=0.2,
+    )
 
 
 @pytest.fixture
