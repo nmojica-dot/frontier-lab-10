@@ -114,6 +114,15 @@ def test_desempate_insuficiente_chat_pregunta_con_candidatos():
     assert d.resultado == "pregunta" and not d.fallida and len(quedan) == 2
 
 
+def test_desempate_con_rotulos_de_pantalla():
+    filas = [{"Código": "CL-0007", "Razón social o nombre": "Distribuciones El Faro"}]
+    c = ContratoCambios(registro_objetivo={"nombre": "Distribuciones El Faro"})
+    d, quedan = desempatar(c, filas, "api")
+    assert d.permitida and quedan == filas
+    otro = ContratoCambios(registro_objetivo={"nombre": "Distribuciones El Faroles"})
+    assert desempatar(otro, filas, "api")[1] == []
+
+
 def test_registro_inexistente():
     c = ContratoCambios(registro_objetivo={"documento": "000"})
     d, quedan = desempatar(c, ANAS, "chat")

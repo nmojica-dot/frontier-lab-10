@@ -92,6 +92,14 @@ def _norm(texto: str) -> str:
     return " ".join(texto.split()).casefold()
 
 
+def _coincide(candidato: dict[str, str], clave: str, valor: str) -> bool:
+    """La clave del contrato («nombre») no siempre es la columna de la pantalla («Razón social
+    o nombre»): si no es columna, vale que alguna celda tenga exactamente ese valor."""
+    if clave in candidato:
+        return _norm(candidato[clave]) == valor
+    return any(_norm(celda) == valor for celda in candidato.values())
+
+
 def desempatar(
     contrato: ContratoCambios, candidatos: list[dict[str, str]], origen: Origen
 ) -> tuple[Decision, list[dict[str, str]]]:
@@ -102,9 +110,7 @@ def desempatar(
     identificadores (api).
     """
     objetivo = {k: _norm(v) for k, v in contrato.registro_objetivo.items()}
-    restantes = [
-        c for c in candidatos if all(_norm(c.get(k, "")) == v for k, v in objetivo.items())
-    ]
+    restantes = [c for c in candidatos if all(_coincide(c, k, v) for k, v in objetivo.items())]
     if len(restantes) == 1:
         return _ok(), restantes
     if not restantes:
