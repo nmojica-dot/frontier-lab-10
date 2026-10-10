@@ -658,7 +658,7 @@ async def confirmar(
     return await _resultado(
         ctx,
         True,
-        f"Clic de «{verbo}» hecho una vez. Falta comprobar el resultado en pantalla.",
+        f"Clic de «{verbo}» hecho una vez.",
         {"verbo": verbo, "ejecutado": True, "espero": espero},
     )
 

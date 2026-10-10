@@ -167,6 +167,30 @@ def test_un_compromiso_sin_verificar_queda_en_el_resumen(tmp_path):
     assert "No se sabe si" in resumen
 
 
+def test_terminar_tras_guardar_sin_mirar_pide_verificar_una_vez(tmp_path):
+    class Guardando(Herramientas):
+        async def __call__(self, ctx, nombre, args):
+            if nombre == "confirmar":
+                ctx.compromisos.append("guardar")
+            return await super().__call__(ctx, nombre, args)
+
+    ctx, store, cuadros, _ = armar(
+        tmp_path,
+        [
+            decision("confirmar", verbo="guardar", descripcion="b"),
+            decision("terminar", resumen="listo"),
+            decision("ver", espero="Cambios aplicados"),
+            decision("terminar", resumen="listo"),
+        ],
+        {},
+        contrato=ContratoCambios(verbos_permitidos=frozenset({"guardar"})),
+    )
+    herr = Guardando({"terminar": ResultadoHerramienta(ok=True, observacion="ok", fin="terminada")})
+    estado, _ = correr(ctx, store, cuadros, herr)
+    assert estado == "terminada"
+    assert herr.llamadas.count("terminar") == 2 and "ver" in herr.llamadas
+
+
 def test_sin_cerrar_nunca_pasa_de_25_decisiones(tmp_path):
     ctx, store, cuadros, herr = armar(tmp_path, [decision("ver")] * 40, {})
     estado, resumen = correr(ctx, store, cuadros, herr)

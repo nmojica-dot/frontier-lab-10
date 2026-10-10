@@ -158,6 +158,7 @@ async def correr_ciclo(
     reg = _Registro()
     captura: bytes | None = None
     errores_seguidos = 0
+    verificacion_pedida = False
 
     def limpio(texto: str) -> str:
         return redactar(texto, secretos)
@@ -273,6 +274,20 @@ async def correr_ciclo(
 
         if res.fin == "fallida":
             return cerrar("fallida", (limpio(res.observacion),))
+        if (
+            res.fin == "terminada"
+            and ctx.compromisos
+            and not verificacion_pedida
+            and not any(v.posterior_a_compromiso for v in reg.evidencias)
+        ):
+            # El modelo quiso terminar sin mirar la pantalla tras guardar: se le da una vez
+            # la oportunidad de comprobarlo en vez de cerrar la tarea como fallida.
+            verificacion_pedida = True
+            reg.historial.append(
+                "[sistema] No puedes terminar aún: tras guardar, llama a `ver` con `espero` "
+                "(el aviso «Cambios aplicados» o el título del registro) y luego termina."
+            )
+            continue
         if res.fin == "terminada":
             try:
                 respuesta = _valores((res.evidencia or {}).get("respuesta"))
