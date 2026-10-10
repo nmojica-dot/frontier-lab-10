@@ -655,11 +655,32 @@ async def confirmar(
         return await _incierto(ctx, verbo, f"falló el clic ({type(exc).__name__})")
     if ctx.cliente.reconexiones != reconexiones:
         return await _incierto(ctx, verbo, "la conexión se reinició durante el clic")
-    return await _resultado(
+    # Los avisos («Cambios aplicados», «Reporte generado») desaparecen a los pocos segundos:
+    # se comprueban con la captura inmediata al clic, no con un `ver` posterior.
+    imagen = await captura_estable(ctx)
+    datos = await _preguntar(
         ctx,
-        True,
-        f"Clic de «{verbo}» hecho una vez.",
-        {"verbo": verbo, "ejecutado": True, "espero": espero},
+        f"Acabo de pulsar «{verbo}». Esperaba ver: {espero or 'un aviso o cambio de pantalla'}. "
+        "Describe en una frase qué muestra la pantalla (aviso, título del registro, mensaje de "
+        "error) y di si confirma que la acción se aplicó.",
+        {
+            "type": "object",
+            "additionalProperties": False,
+            "required": ["coincide", "descripcion"],
+            "properties": {"coincide": {"type": "boolean"}, "descripcion": {"type": "string"}},
+        },
+        imagen,
+    )
+    coincide = datos.get("coincide") is True
+    return ResultadoHerramienta(
+        ok=True,
+        observacion=_limpio(
+            ctx, f"Clic de «{verbo}» hecho una vez. Pantalla: {datos.get('descripcion', '')}"
+        ),
+        captura=imagen.a_png(),
+        evidencia=_limpio_datos(
+            ctx, {"verbo": verbo, "ejecutado": True, "espero": espero, "coincide": coincide}
+        ),
     )
 
 

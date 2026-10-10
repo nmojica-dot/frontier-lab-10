@@ -96,8 +96,9 @@ si no hay coincidencias, crea. Sin esa búsqueda, `confirmar` no deja guardar. E
 desplegables (como Ciudad) no teclees: haz clic en el campo y luego en la opción.
 - Para guardar usa `confirmar` con la `descripcion` corta del botón tal cual su rótulo en \
 pantalla (p. ej. «botón Aplicar»): en la versión 4.2 «Guardar» se llama «Aplicar». Si dice que \
-no lo ve, reintenta con el rótulo exacto. Tras guardar, comprueba con `ver` el aviso «Cambios \
-aplicados» o el título «Cliente CL-…» y termina; no busques con el formulario abierto.
+no lo ve, reintenta con el rótulo exacto. En `confirmar` pon en `espero` el aviso que debe salir \
+(«Cambios aplicados», «Reporte generado»): se comprueba con la captura inmediata, porque los \
+avisos desaparecen en segundos. Tras guardar, termina; no busques con el formulario abierto.
 - Sé breve: pocas decisiones, cada una con un propósito."""
 
 
@@ -258,7 +259,9 @@ async def correr_ciclo(
             reg.hecho.append(limpio(res.observacion)[:200])
         cuenta = res.ok and res.fin is None
         if cuenta and (
-            nombre in HERRAMIENTAS_CON_EVIDENCIA or (nombre == "ver" and ctx.compromisos)
+            nombre in HERRAMIENTAS_CON_EVIDENCIA
+            or (nombre == "ver" and ctx.compromisos)
+            or (nombre == "confirmar" and (res.evidencia or {}).get("coincide") is True)
         ):
             reg.evidencias.append(
                 Evidencia(

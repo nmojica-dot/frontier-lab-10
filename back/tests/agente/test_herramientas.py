@@ -312,7 +312,8 @@ def contrato_guardar():
 
 def test_confirmar_registra_el_compromiso_antes_del_clic_y_una_sola_vez():
     async def escenario():
-        async with entorno([punto(640, 700)], contrato_guardar()) as (ctx, srv, modelo):
+        aviso = {"coincide": True, "descripcion": "Aviso «Cambios aplicados»"}
+        async with entorno([punto(640, 700), aviso], contrato_guardar()) as (ctx, srv, modelo):
             ctx.registros_coincidentes = 1
             visto = []
             clic_real = ctx.cliente.clic
@@ -323,12 +324,14 @@ def test_confirmar_registra_el_compromiso_antes_del_clic_y_una_sola_vez():
 
             ctx.cliente.clic = espia
             args = {"verbo": "guardar", "descripcion": "botón Guardar"}
-            assert (await ejecutar(ctx, "confirmar", args)).ok
+            primero = await ejecutar(ctx, "confirmar", args)
+            assert primero.ok and primero.evidencia["coincide"] is True
+            assert "Cambios aplicados" in primero.observacion
             assert visto == [["guardar"]]
             segundo = await ejecutar(ctx, "confirmar", args)
             assert not segundo.ok and "no se repite" in segundo.observacion
             assert tipos(srv).count("puntero_abajo") == 1
-            assert len(modelo.llamadas) == 1
+            assert len(modelo.llamadas) == 2  # ubicar el botón + leer el aviso
 
     correr(escenario)
 
