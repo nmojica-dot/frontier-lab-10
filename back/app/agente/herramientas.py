@@ -8,6 +8,7 @@ se redacta son los secretos que el ciclo pase en `Contexto.secretos`.
 """
 
 import asyncio
+import logging
 import unicodedata
 from collections.abc import Awaitable, Callable
 from dataclasses import dataclass, field
@@ -18,6 +19,8 @@ from app.criterio.contrato import Accion, ContratoCambios, EstadoCriterio, Orige
 from app.criterio.redaccion import redactar, redactar_datos
 from app.criterio.seguridad import desempatar, validar_accion
 from app.rfb import ClienteRFB, ConexionPerdida, ErrorRFB, Imagen
+
+logger = logging.getLogger(__name__)
 
 MAX_PAGINAS = 30
 _INTENTOS_REPINTADO = 4
@@ -270,68 +273,104 @@ async def tecla(ctx: Contexto, *, nombre: str, espero: str | None = None) -> Res
     return await _resultado(ctx, True, f"Tecla pulsada: {nombre}.", {"espero": espero})
 
 
+_PUNTO_NULO: dict[str, Any] = {
+    "anyOf": [
+        {"type": "null"},
+        {
+            "type": "object",
+            "additionalProperties": False,
+            "required": ["x", "y"],
+            "properties": {"x": {"type": "integer"}, "y": {"type": "integer"}},
+        },
+    ]
+}
+
 _ESQUEMA_TABLA: dict[str, Any] = {
     "type": "object",
     "additionalProperties": False,
-    "required": ["filas", "siguiente"],
+    "required": ["filas_visibles", "filas", "anterior", "siguiente"],
     "properties": {
+        "filas_visibles": {"type": "integer"},
         "filas": {
             "type": "array",
             "items": {"type": "object", "additionalProperties": {"type": "string"}},
         },
-        "siguiente": {
-            "anyOf": [
-                {"type": "null"},
-                {
-                    "type": "object",
-                    "additionalProperties": False,
-                    "required": ["x", "y"],
-                    "properties": {"x": {"type": "integer"}, "y": {"type": "integer"}},
-                },
-            ]
-        },
+        "anterior": _PUNTO_NULO,
+        "siguiente": _PUNTO_NULO,
     },
 }
 
+_PREGUNTA_TABLA = (
+    "Lee la tabla de resultados de la captura. Primero cuenta las filas de datos que se ven "
+    "(sin el encabezado) y ponlo en `filas_visibles`. Luego da TODAS esas filas en `filas`, "
+    "sin saltarte ninguna: una por registro, con el nombre de la columna como clave y el "
+    "texto exacto como valor (respeta tildes). En `anterior` y `siguiente` da el centro del "
+    "botón de página anterior / siguiente si está activo; si no existe o está deshabilitado "
+    "(gris), null."
+)
+
+
+def _filas_de(datos: dict[str, Any]) -> list[dict[str, str]]:
+    return [
+        {str(k): str(v) for k, v in f.items()}
+        for f in datos.get("filas", [])
+        if isinstance(f, dict)
+    ]
+
+
+async def _leer_pagina(ctx: Contexto) -> tuple[list[dict[str, str]], dict[str, Any]]:
+    """Una página de la tabla. Si el modelo dice ver más filas de las que transcribió, se
+    repite la lectura una vez y se queda con la más completa: se le saltaban filas."""
+    mejor: list[dict[str, str]] = []
+    mejor_datos: dict[str, Any] = {}
+    for _ in range(2):
+        imagen = await captura_estable(ctx)
+        datos = await _preguntar(ctx, _PREGUNTA_TABLA, _ESQUEMA_TABLA, imagen)
+        filas = _filas_de(datos)
+        if len(filas) > len(mejor) or not mejor_datos:
+            mejor, mejor_datos = filas, datos
+        visibles = datos.get("filas_visibles")
+        if not isinstance(visibles, int) or len(mejor) >= visibles:
+            break
+        logger.warning("tabla: vi %s filas y transcribí %s; repito", visibles, len(filas))
+    return mejor, mejor_datos
+
+
+def _punto_de(datos: dict[str, Any], clave: str) -> tuple[int, int] | None:
+    punto = datos.get(clave)
+    if not isinstance(punto, dict):
+        return None
+    x, y = punto.get("x"), punto.get("y")
+    if not (isinstance(x, int) and isinstance(y, int)):
+        raise ErrorHerramienta(f"El modelo dio un botón '{clave}' sin coordenadas válidas.")
+    return x, y
+
 
 async def _leer_paginas(ctx: Contexto) -> tuple[list[dict[str, str]], int]:
-    """Lee la tabla visible y avanza con "Siguiente" hasta que no haya más. -> (filas, páginas)."""
+    """Vuelve a la primera página, lee la tabla visible y avanza con "Siguiente" hasta que no
+    haya más. -> (filas, páginas)."""
+    actuales, datos = await _leer_pagina(ctx)
+    # La tabla conserva la página en que se quedó la lectura anterior: se empieza por la 1.
+    for _ in range(ctx.max_paginas):
+        if (atras := _punto_de(datos, "anterior")) is None:
+            break
+        await ctx.cliente.clic(*atras)
+        actuales, datos = await _leer_pagina(ctx)
     filas: list[dict[str, str]] = []
     previa: list[dict[str, str]] | None = None
     paginas = 0
     while paginas < ctx.max_paginas:
-        imagen = await captura_estable(ctx)
-        datos = await _preguntar(
-            ctx,
-            "Lee la tabla de resultados de la captura: una fila por registro, con el nombre "
-            "de la columna como clave y el texto exacto como valor (respeta tildes). "
-            "En `siguiente` da el centro del botón de página siguiente si está activo; "
-            "si no existe o está deshabilitado, null.",
-            _ESQUEMA_TABLA,
-            imagen,
-        )
-        actuales = [
-            {str(k): str(v) for k, v in f.items()}
-            for f in datos.get("filas", [])
-            if isinstance(f, dict)
-        ]
         if previa is not None and actuales == previa:
-            break  # "Siguiente" no cambió nada: no hay más páginas
+            return filas, paginas  # "Siguiente" no cambió nada: no hay más páginas
         paginas += 1
         filas.extend(actuales)
         previa = actuales
-        punto = datos.get("siguiente")
-        if not isinstance(punto, dict):
+        logger.warning("tabla: página %s con %s filas", paginas, len(actuales))
+        if (adelante := _punto_de(datos, "siguiente")) is None:
             return filas, paginas
-        x, y = punto.get("x"), punto.get("y")
-        if not (isinstance(x, int) and isinstance(y, int)):
-            raise ErrorHerramienta("El modelo dio un botón 'Siguiente' sin coordenadas válidas.")
-        await ctx.cliente.clic(x, y)
-    if paginas >= ctx.max_paginas:
-        raise ErrorHerramienta(
-            f"La tabla tiene más de {ctx.max_paginas} páginas; no se leyó completa."
-        )
-    return filas, paginas
+        await ctx.cliente.clic(*adelante)
+        actuales, datos = await _leer_pagina(ctx)
+    raise ErrorHerramienta(f"La tabla tiene más de {ctx.max_paginas} páginas; no se leyó completa.")
 
 
 async def leer_tabla(ctx: Contexto, *, espero: str | None = None) -> ResultadoHerramienta:
