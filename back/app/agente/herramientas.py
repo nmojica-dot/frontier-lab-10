@@ -486,7 +486,9 @@ async def buscar_registro(
             ok=False,
             observacion=(
                 "Hay un formulario abierto: buscar aquí escribiría en sus campos y Enter lo "
-                "guardaría. Guarda con `confirmar` o ciérralo con su botón Cerrar antes de buscar."
+                "guardaría. Si en esta tarea todavía no has escrito nada en él, ciérralo con su "
+                "botón Cerrar (sin guardar) y busca después. Solo usa `confirmar` si ya "
+                "escribiste en él los cambios de la instrucción."
             ),
         )
     literal = _literal_del_contrato(ctx.contrato, texto)
