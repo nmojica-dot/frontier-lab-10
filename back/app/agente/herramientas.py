@@ -316,12 +316,44 @@ async def leer_tabla(ctx: Contexto, *, espero: str | None = None) -> ResultadoHe
     )
 
 
+def _clave(texto: str) -> str:
+    """Para comparar sin importar tildes ni mayúsculas (la app sí las distingue al buscar)."""
+    return _norm(_sin_tildes(texto))
+
+
+def _valores_del_contrato(contrato: ContratoCambios) -> list[str]:
+    return [
+        *contrato.registro_objetivo.values(),
+        *(v for vs in contrato.valores_permitidos.values() for v in vs),
+    ]
+
+
+def _literal_del_contrato(contrato: ContratoCambios, texto: str) -> str | None:
+    """El valor de la instrucción (con sus tildes) que corresponde a `texto`, si lo hay."""
+    for valor in _valores_del_contrato(contrato):
+        if _clave(valor) == _clave(texto):
+            return valor
+    return None
+
+
+def _es_filtro_de_lectura(contrato: ContratoCambios, valor: str) -> bool:
+    """En una tarea que no puede guardar nada, escribir en un filtro un valor (o parte de un
+    valor) que sale de la instrucción es buscar, no cambiar datos."""
+    if contrato.verbos_permitidos:
+        return False
+    v = _clave(valor)
+    return bool(v) and any(
+        v in _clave(c) or _clave(c) in v for c in _valores_del_contrato(contrato)
+    )
+
+
 async def buscar_registro(
     ctx: Contexto, *, campo: str, texto: str, espero: str | None = None
 ) -> ResultadoHerramienta:
     """Filtra por `campo` con `texto` tal cual y sin tildes (la app distingue tildes),
     junta los resultados de todas las páginas y cuenta los candidatos."""
-    variantes = list(dict.fromkeys([texto, _sin_tildes(texto)]))
+    literal = _literal_del_contrato(ctx.contrato, texto)
+    variantes = list(dict.fromkeys([v for v in (literal, texto, _sin_tildes(texto)) if v]))
     candidatos: list[dict[str, str]] = []
     vistos: set[tuple[tuple[str, str], ...]] = set()
     for variante in variantes:
@@ -376,9 +408,10 @@ async def llenar_campos(
         if not {"campo", "valor"} <= item.keys():
             raise ErrorHerramienta("Cada campo necesita 'campo' y 'valor'.")
     for item in campos:
+        tipo = "navegar" if _es_filtro_de_lectura(ctx.contrato, item["valor"]) else "escribir"
         decision = validar_accion(
             ctx.contrato,
-            Accion(tipo="escribir", campo=item["campo"], valor=item["valor"]),
+            Accion(tipo=tipo, campo=item["campo"], valor=item["valor"]),
             ctx.estado(),
             ctx.origen,
         )
