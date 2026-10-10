@@ -194,9 +194,33 @@ async def ver(ctx: Contexto, *, espero: str | None = None) -> ResultadoHerramien
     )
 
 
+_PALABRAS_COMPROMISO: dict[str, tuple[str, ...]] = {
+    "guardar": ("guardar", "grabar"),
+    "eliminar": ("eliminar", "borrar", "suprimir"),
+    "exportar": ("exportar", "descargar"),
+}
+
+
+def _verbos_en(texto: str) -> set[str]:
+    t = _norm(texto)
+    return {v for v, palabras in _PALABRAS_COMPROMISO.items() if any(p in t for p in palabras)}
+
+
+def _exige_confirmar(verbos: set[str]) -> ResultadoHerramienta:
+    return ResultadoHerramienta(
+        ok=False,
+        observacion=(
+            f"Eso es un compromiso ({', '.join(sorted(verbos))}): no se hace con clic ni tecla. "
+            "Usa la herramienta `confirmar`, que lo valida y lo ejecuta una sola vez."
+        ),
+    )
+
+
 async def clic(
     ctx: Contexto, *, descripcion: str, espero: str | None = None
 ) -> ResultadoHerramienta:
+    if verbos := _verbos_en(descripcion):
+        return _exige_confirmar(verbos)
     x, y = await _ubicar(ctx, descripcion)
     await ctx.cliente.clic(x, y)
     return await _resultado(ctx, True, f"Clic en: {descripcion}.", {"espero": espero})
@@ -211,6 +235,8 @@ async def hover(
 
 
 async def tecla(ctx: Contexto, *, nombre: str, espero: str | None = None) -> ResultadoHerramienta:
+    if nombre.strip().lower().replace(" ", "") in ("ctrl+s", "ctrl+shift+s"):
+        return _exige_confirmar({"guardar"})
     await ctx.cliente.tecla(nombre)
     return await _resultado(ctx, True, f"Tecla pulsada: {nombre}.", {"espero": espero})
 
@@ -418,6 +444,15 @@ async def confirmar(
             observacion=_limpio(ctx, decision.motivo),
             evidencia={"decision": decision.resultado},
             fin="fallida" if decision.fallida else None,
+        )
+    otros = _verbos_en(descripcion) - {verbo}
+    if otros and verbo not in _verbos_en(descripcion):
+        return ResultadoHerramienta(
+            ok=False,
+            observacion=(
+                f"Pediste «{verbo}» pero el botón descrito es de «{', '.join(sorted(otros))}». "
+                "No se hizo nada."
+            ),
         )
     x, y = await _ubicar(ctx, descripcion)  # solo lee: si falla, el compromiso sigue libre
     ctx.compromisos.append(verbo)  # antes de ejecutar (B4)

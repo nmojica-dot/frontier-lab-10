@@ -1,4 +1,5 @@
 import asyncio
+import hashlib
 import logging
 from collections.abc import Awaitable, Callable
 
@@ -43,7 +44,9 @@ class Coordinador:
         self, task_id: str, instruccion: str, canal: str, url: str, password: SecretStr
     ) -> None:
         # La contraseña llega solo hasta aquí, en memoria.
-        turno = self._turnos.setdefault(url, asyncio.Lock())
+        # La clave es un hash: la URL del escritorio podría llevar un token.
+        clave = hashlib.sha256(url.encode()).hexdigest()
+        turno = self._turnos.setdefault(clave, asyncio.Lock())
         try:
             async with turno:
                 if self._ejecutor is not None:

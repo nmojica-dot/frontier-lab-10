@@ -139,7 +139,7 @@ class ClienteRFB:
         self.texto_del_servidor = ""  # último "cut text" recibido (para X2)
 
     def __repr__(self) -> str:
-        return f"ClienteRFB(url={self._url!r}, cerrado={self._cerrado})"
+        return f"ClienteRFB(cerrado={self._cerrado})"  # sin URL: puede traer un token
 
     async def __aenter__(self) -> Self:
         await self.conectar()

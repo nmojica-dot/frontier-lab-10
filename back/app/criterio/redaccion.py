@@ -15,6 +15,24 @@ _PATRONES = [
 ]
 
 
+# Secretos de la propia app que nadie nos pasó: "Clave de integración: SGC-...". Se borra el
+# valor que sigue a una etiqueta de secreto, sea cual sea.
+_ETIQUETADO = re.compile(
+    r"(?i)\b(clave|token|secreto|api[ _-]?key|contraseñ?a|password|credenciales?)\b"
+    r"([^:=\n]{0,40})([:=])\s*[^\s,;]+"
+)
+
+
+def _regex_secreto(s: str) -> re.Pattern[str]:
+    """Sin distinguir mayúsculas; si es larga, tolera separadores entre caracteres."""
+    if len(s) >= 6:
+        sep = r"[\s\-._]?"
+        cuerpo = sep.join(sep if c in " -._" else re.escape(c) for c in s)
+    else:
+        cuerpo = re.escape(s)
+    return re.compile(cuerpo, re.IGNORECASE)
+
+
 class SecretoSinRedactar(Exception):
     """Tras redactar sigue apareciendo un secreto. El texto no debe guardarse ni emitirse."""
 
@@ -39,11 +57,13 @@ def _prepara(secretos: Iterable[str]) -> list[str]:
 
 def redactar(texto: str, secretos: Iterable[str]) -> str:
     lista = _prepara(secretos)
-    for v in lista:
-        texto = texto.replace(v, MARCA)
+    regexes = [_regex_secreto(v) for v in lista]
+    for rx in regexes:
+        texto = rx.sub(MARCA, texto)
     for patron in _PATRONES:
         texto = patron.sub(MARCA, texto)
-    if any(v in texto for v in lista):
+    texto = _ETIQUETADO.sub(lambda m: f"{m[1]}{m[2]}{m[3]} {MARCA}", texto)
+    if any(rx.search(texto) for rx in regexes):
         raise SecretoSinRedactar("Quedó un secreto en el texto tras redactar.")
     return texto
 

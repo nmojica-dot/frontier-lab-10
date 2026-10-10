@@ -284,7 +284,8 @@ async def ejecutar_tarea(
     abrir_cliente: Callable[..., ClienteRFB] = ClienteRFB,
 ) -> None:
     """Corre una tarea completa y deja su estado final en el store. Nunca lanza."""
-    secreto = password.get_secret_value()
+    # La contraseña del escritorio y la llave del modelo no pueden salir en ningún texto.
+    secretos = tuple(s for s in (password.get_secret_value(), api_key) if s)
     estado, resumen = "fallida", "Error interno del servicio."
     modelo = modelo or ClienteOpenRouter(api_key, costo_max=costo_max)
     store.agregar_evento(task_id, "estado", {"estado": "en_curso"})
@@ -297,7 +298,7 @@ async def ejecutar_tarea(
                     modelo=modelo,
                     contrato=contrato,
                     origen="chat" if canal == "chat" else "api",
-                    secretos=(secreto,),
+                    secretos=secretos,
                 )
                 estado, resumen = await correr_ciclo(
                     ctx, instruccion=instruccion, task_id=task_id, store=store, cuadros=cuadros
@@ -318,4 +319,4 @@ async def ejecutar_tarea(
         log.error("ciclo falló task=%s tipo=%s", task_id, type(exc).__name__)
     finally:
         cuadros.olvidar_pantalla(task_id)
-    store.finalizar(task_id, estado, redactar(resumen, [secreto]))
+    store.finalizar(task_id, estado, redactar(resumen, secretos))
