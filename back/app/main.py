@@ -8,6 +8,7 @@ from fastapi import Depends, FastAPI, Request
 from fastapi.responses import Response, StreamingResponse
 from pydantic import BaseModel, SecretStr, StringConstraints, field_validator
 
+from app.agente.ciclo import ejecutar_tarea
 from app.bus import Bus, Respuestas
 from app.config import Settings
 from app.cuadros import Cuadros
@@ -80,7 +81,23 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     respuestas = Respuestas()
     cuadros = Cuadros(settings.cuadros_dir)
     store = Store(settings.db_path, on_evento=bus.publicar)
-    coordinador = Coordinador(store, settings.worker_demora)
+    ejecutor = None
+    if settings.openrouter_api_key:
+        # Con llave de OpenRouter corre el agente real; sin ella, el worker de mentira.
+        async def ejecutor(task_id, instruccion, canal, url, password) -> None:
+            await ejecutar_tarea(
+                task_id=task_id,
+                instruccion=instruccion,
+                url=url,
+                password=password,
+                canal=canal,
+                store=store,
+                cuadros=cuadros,
+                api_key=settings.openrouter_api_key,
+                costo_max=settings.costo_max_por_tarea,
+            )
+
+    coordinador = Coordinador(store, settings.worker_demora, ejecutor)
 
     @asynccontextmanager
     async def lifespan(_: FastAPI):
@@ -114,7 +131,13 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     async def crear_tarea(cuerpo: NuevaTarea) -> TareaCreada:
         task_id = uuid.uuid4().hex
         store.crear_tarea(task_id, cuerpo.tarea, cuerpo.canal, cuerpo.solicitante)
-        coordinador.lanzar(task_id, cuerpo.escritorio.url, cuerpo.escritorio.password)
+        coordinador.lanzar(
+            task_id,
+            cuerpo.tarea,
+            cuerpo.canal,
+            cuerpo.escritorio.url,
+            cuerpo.escritorio.password,
+        )
         return TareaCreada(task_id=task_id)
 
     @app.get("/tasks/{task_id}", response_model=EstadoTarea, response_model_exclude_none=True)

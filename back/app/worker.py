@@ -1,11 +1,16 @@
 import asyncio
 import logging
+from collections.abc import Awaitable, Callable
 
 from pydantic import SecretStr
 
 from app.store import Store
 
 log = logging.getLogger("navegante.worker")
+
+# (task_id, instruccion, canal, url, password). El ejecutor real deja el estado final en el
+# store y no lanza; si no hay ejecutor, corre el worker de mentira.
+Ejecutor = Callable[[str, str, str, str, SecretStr], Awaitable[None]]
 
 RESUMEN_ESQUELETO = (
     "El agente todavía no está conectado al escritorio: la tarea no se ejecutó y no se cambió nada."
@@ -20,22 +25,30 @@ class Coordinador:
     porque no hizo nada que se pueda comprobar.
     """
 
-    def __init__(self, store: Store, demora: float) -> None:
+    def __init__(self, store: Store, demora: float, ejecutor: Ejecutor | None = None) -> None:
         self._store = store
         self._demora = demora
+        self._ejecutor = ejecutor
         self._turnos: dict[str, asyncio.Lock] = {}
         self._vivas: set[asyncio.Task] = set()
 
-    def lanzar(self, task_id: str, url: str, password: SecretStr) -> None:
-        tarea = asyncio.create_task(self._correr(task_id, url, password))
+    def lanzar(
+        self, task_id: str, instruccion: str, canal: str, url: str, password: SecretStr
+    ) -> None:
+        tarea = asyncio.create_task(self._correr(task_id, instruccion, canal, url, password))
         self._vivas.add(tarea)
         tarea.add_done_callback(self._vivas.discard)
 
-    async def _correr(self, task_id: str, url: str, password: SecretStr) -> None:
-        # La contraseña llega solo hasta aquí, en memoria. B2 la usará para conectar.
+    async def _correr(
+        self, task_id: str, instruccion: str, canal: str, url: str, password: SecretStr
+    ) -> None:
+        # La contraseña llega solo hasta aquí, en memoria.
         turno = self._turnos.setdefault(url, asyncio.Lock())
         try:
             async with turno:
+                if self._ejecutor is not None:
+                    await self._ejecutor(task_id, instruccion, canal, url, password)
+                    return
                 self._store.agregar_evento(task_id, "estado", {"estado": "en_curso"})
                 self._store.agregar_evento(
                     task_id,
