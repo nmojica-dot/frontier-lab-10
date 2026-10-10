@@ -44,6 +44,9 @@ def tabla(*filas, siguiente=None):
     return {"filas": list(filas), "siguiente": siguiente}
 
 
+SIN_FORMULARIO = {"formulario_abierto": False}
+
+
 def tipos(srv):
     return [e[0] for e in srv.eventos]
 
@@ -195,6 +198,7 @@ def test_buscar_registro_prueba_con_y_sin_tilde_y_cuenta():
             registro_objetivo={"nombre": "José Pérez"}, verbos_permitidos=frozenset({"guardar"})
         )
         resp = [
+            SIN_FORMULARIO,
             punto(100, 100),
             tabla(),  # con tilde no hay filas: se prueba la variante sin tilde
             punto(100, 100),
@@ -211,13 +215,24 @@ def test_buscar_registro_prueba_con_y_sin_tilde_y_cuenta():
     correr(escenario)
 
 
+def test_buscar_registro_no_escribe_si_hay_un_formulario_abierto():
+    async def escenario():
+        contrato = ContratoCambios(verbos_permitidos=frozenset({"guardar"}))
+        async with entorno([{"formulario_abierto": True}], contrato) as (ctx, srv, _):
+            r = await ejecutar(ctx, "buscar_registro", {"campo": "NIT", "texto": "901234567"})
+            assert not r.ok and "formulario abierto" in r.observacion
+            assert srv.eventos == []  # ni un clic ni una tecla: Enter lo habría guardado
+
+    correr(escenario)
+
+
 def test_buscar_registro_homonimos_deja_dos_coincidentes():
     async def escenario():
         contrato = ContratoCambios(
             registro_objetivo={"nombre": "Ana Torres"}, verbos_permitidos=frozenset({"guardar"})
         )
         filas = tabla({"nombre": "Ana Torres", "doc": "1"}, {"nombre": "Ana Torres", "doc": "2"})
-        resp = [punto(1, 1), filas]  # sin tilde en el texto: una sola variante
+        resp = [SIN_FORMULARIO, punto(1, 1), filas]  # sin tilde en el texto: una sola variante
         async with entorno(resp, contrato) as (ctx, _, _):
             r = await ejecutar(ctx, "buscar_registro", {"campo": "Nombre", "texto": "Ana Torres"})
             assert ctx.registros_coincidentes == 2

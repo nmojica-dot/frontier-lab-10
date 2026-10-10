@@ -449,6 +449,26 @@ def _es_filtro_de_lectura(contrato: ContratoCambios, valor: str) -> bool:
     )
 
 
+_ESQUEMA_FORMULARIO: dict[str, Any] = {
+    "type": "object",
+    "additionalProperties": False,
+    "required": ["formulario_abierto"],
+    "properties": {"formulario_abierto": {"type": "boolean"}},
+}
+
+
+async def _formulario_abierto(ctx: Contexto) -> bool:
+    imagen = await captura_estable(ctx)
+    datos = await _preguntar(
+        ctx,
+        "¿Hay abierto un formulario de alta o edición, con campos y un botón como Aplicar, "
+        "Guardar o Aceptar? Una lista con filtros arriba NO es un formulario.",
+        _ESQUEMA_FORMULARIO,
+        imagen,
+    )
+    return datos.get("formulario_abierto") is True
+
+
 async def buscar_registro(
     ctx: Contexto,
     *,
@@ -460,6 +480,15 @@ async def buscar_registro(
 ) -> ResultadoHerramienta:
     """Filtra por `campo` con `texto` tal cual y sin tildes (la app distingue tildes),
     junta los resultados de todas las páginas y cuenta los candidatos."""
+    if ctx.contrato.verbos_permitidos and await _formulario_abierto(ctx):
+        # Enter dentro de un formulario lo envía: sería guardar sin pasar por `confirmar` (B4).
+        return ResultadoHerramienta(
+            ok=False,
+            observacion=(
+                "Hay un formulario abierto: buscar aquí escribiría en sus campos y Enter lo "
+                "guardaría. Guarda con `confirmar` o ciérralo con su botón Cerrar antes de buscar."
+            ),
+        )
     literal = _literal_del_contrato(ctx.contrato, texto)
     variantes = list(dict.fromkeys([v for v in (literal, texto, _sin_tildes(texto)) if v]))
     candidatos: list[dict[str, str]] = []

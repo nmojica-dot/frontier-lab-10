@@ -94,6 +94,10 @@ nombre exacto de la instrucción y di en el resumen cuántos excluiste.
 nombre o documento de la instrucción: si ya existe, no lo crees (falla nombrando el existente); \
 si no hay coincidencias, crea. Sin esa búsqueda, `confirmar` no deja guardar. En los campos \
 desplegables (como Ciudad) no teclees: haz clic en el campo y luego en la opción.
+- Para guardar usa `confirmar` con la `descripcion` corta del botón tal cual su rótulo en \
+pantalla (p. ej. «botón Aplicar»): en la versión 4.2 «Guardar» se llama «Aplicar». Si dice que \
+no lo ve, reintenta con el rótulo exacto. Tras guardar, comprueba con `ver` el aviso «Cambios \
+aplicados» o el título «Cliente CL-…» y termina; no busques con el formulario abierto.
 - Sé breve: pocas decisiones, cada una con un propósito."""
 
 
