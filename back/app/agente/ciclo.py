@@ -311,6 +311,13 @@ async def ejecutar_tarea(
     try:
         async with asyncio.timeout(CIERRE):
             contrato = await fijar_contrato(instruccion, modelo)
+            # Solo los nombres de campo, no los valores: sirve para depurar sin datos personales.
+            log.warning(
+                "contrato: objetivo=%s escribir=%s verbos=%s",
+                sorted(contrato.registro_objetivo),
+                sorted(contrato.valores_permitidos),
+                sorted(contrato.verbos_permitidos),
+            )
             async with abrir_cliente(url, password, limite=CIERRE) as cliente:
                 ctx = Contexto(
                     cliente=cliente,

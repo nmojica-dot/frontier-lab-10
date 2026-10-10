@@ -52,6 +52,16 @@ def test_e1_crear_cliente():
     assert c.verbos_permitidos == {"guardar"}
 
 
+def test_crear_permite_escribir_lo_que_el_modelo_dejo_como_objetivo():
+    c = _fijar(
+        "Registra al cliente Papelería Los Andes, NIT 901234567, ciudad Pereira.",
+        tipo="crear",
+        registro_objetivo={"nombre": "Papelería Los Andes"},
+        valores_a_escribir={"nit": "901234567", "ciudad": "Pereira"},
+    )
+    assert c.valores_permitidos["nombre"] == ("Papelería Los Andes",)
+
+
 def test_e2_cambiar_direccion():
     c = _fijar(
         "Corrige la dirección del cliente Distribuciones El Faro: ahora es Calle 80 # 24-15.",

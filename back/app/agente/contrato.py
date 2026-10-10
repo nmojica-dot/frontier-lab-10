@@ -167,6 +167,11 @@ def _armar(d: dict[str, Any], instruccion: str) -> ContratoCambios:
         objetivo = {}
 
     permitidos: dict[str, tuple[str, ...]] = {k: (v,) for k, v in valores.items()}
+    if tipo == "crear":
+        # Al crear, lo que identifica al registro (el nombre, el NIT) también se escribe:
+        # el modelo a veces lo clasifica como objetivo y no como valor a escribir.
+        for campo, dato in objetivo.items():
+            permitidos.setdefault(campo, (dato,))
     for campo, criterio in filtros.items():
         permitidos.setdefault(campo, (criterio,))
     return ContratoCambios(
