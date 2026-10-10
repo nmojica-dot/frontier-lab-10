@@ -11,10 +11,9 @@ from app.agente.tipos import ErrorModelo, RespuestaModelo, TopeDeCosto
 
 URL_BASE = "https://openrouter.ai/api/v1"
 
-# OJO: id por defecto SUPUESTO, no verificado contra el catálogo actual de OpenRouter.
-# La spec B3 habla de Claude Sonnet 5.5 / Gemini 3.5 Flash Lite, pero no se sus ids exactos.
+# Id verificado el 2026-10-10 contra https://openrouter.ai/api/v1/models (entrada de imagen).
 # Se sobreescribe con la variable MODELO_ID (o el parámetro `modelo_id`).
-MODELO_ID_DEFECTO = "anthropic/claude-sonnet-4.5"
+MODELO_ID_DEFECTO = "anthropic/claude-sonnet-5.5"
 
 
 class ClienteOpenRouter:
