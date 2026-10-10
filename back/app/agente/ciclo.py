@@ -188,6 +188,7 @@ async def correr_ciclo(
             return cerrar("fallida", ("Se pasó el tope de costo de la tarea.",))
         except ErrorModelo as exc:
             errores_seguidos += 1
+            log.warning("modelo falló en la decisión %s: %s", n, limpio(str(exc)))
             reg.historial.append(f"[error del modelo: {type(exc).__name__}]")
             if errores_seguidos >= ERRORES_SEGUIDOS_MAX:
                 return cerrar("fallida", ("El modelo no respondió algo utilizable.",))
@@ -313,7 +314,8 @@ async def ejecutar_tarea(
         resumen = "El escritorio rechazó las credenciales; no se hizo nada."
     except (ClienteCerrado, ErrorRFB):
         resumen = "Se perdió la conexión con el escritorio; no se puede confirmar el resultado."
-    except ErrorModelo:
+    except ErrorModelo as exc:
+        log.warning("modelo falló task=%s: %s", task_id, redactar(str(exc), secretos))
         resumen = "El modelo no respondió algo utilizable."
     except Exception as exc:  # noqa: BLE001 - se reporta como fallida, no se traga
         log.error("ciclo falló task=%s tipo=%s", task_id, type(exc).__name__)

@@ -60,7 +60,9 @@ class ClienteOpenRouter:
             ],
             "response_format": {
                 "type": "json_schema",
-                "json_schema": {"name": "respuesta", "strict": True, "schema": esquema},
+                # strict=False: nuestros esquemas llevan mapas abiertos (campo -> valor) y el
+                # modo estricto de los proveedores los rechaza con 400. El JSON se valida al leerlo.
+                "json_schema": {"name": "respuesta", "strict": False, "schema": esquema},
             },
             "usage": {"include": True},
         }
@@ -104,7 +106,13 @@ class ClienteOpenRouter:
             )
         resp = await self._enviar(self._cuerpo(sistema, usuario, esquema, imagen_png))
         if resp.status_code >= 400:
-            raise ErrorModelo(f"OpenRouter rechazó la petición ({resp.status_code})")
+            detalle = ""
+            try:
+                err = resp.json().get("error", {})
+                detalle = str(err.get("message", ""))[:300] if isinstance(err, dict) else ""
+            except (ValueError, AttributeError):
+                pass
+            raise ErrorModelo(f"OpenRouter rechazó la petición ({resp.status_code}): {detalle}")
         try:
             cuerpo = resp.json()
         except ValueError as e:

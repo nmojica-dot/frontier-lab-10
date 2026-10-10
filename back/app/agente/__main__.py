@@ -11,6 +11,7 @@ Con `ESCRITORIO_TOKEN` (el "token del escritorio" de la tarjeta) reinicia la app
 
 import asyncio
 import json
+import logging
 import os
 import sys
 import tempfile
@@ -94,6 +95,7 @@ async def main(arg: str, reset: bool, carpeta: Path) -> None:
 
 
 if __name__ == "__main__":
+    logging.basicConfig(level=logging.WARNING, format="aviso: %(message)s")
     args = [a for a in sys.argv[1:] if not a.startswith("--")]
     if not args:
         sys.exit("Uso: python -m app.agente E5 [--sin-reset] [carpeta_pruebas]")
