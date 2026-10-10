@@ -58,6 +58,13 @@ def test_verbo_no_permitido():
     assert not d.permitida and d.fallida
 
 
+def test_exportar_no_exige_registro_verificado():
+    c = ContratoCambios(verbos_permitidos=frozenset({"exportar"}))
+    assert validar_accion(c, comprometer("exportar"), EstadoCriterio(), "api").permitida
+    repetido = EstadoCriterio(compromisos=("exportar",))
+    assert not validar_accion(c, comprometer("exportar"), repetido, "api").permitida
+
+
 def test_compromiso_una_sola_vez():
     estado = EstadoCriterio(registros_coincidentes=1, compromisos=("guardar",))
     d = validar_accion(CONTRATO, comprometer("guardar"), estado, "api")

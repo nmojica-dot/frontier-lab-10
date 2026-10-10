@@ -52,6 +52,10 @@ def _validar_compromiso(
         return _no(f"La instrucción no permite '{verbo}'.")
     if verbo in estado.compromisos:
         return _no(f"'{verbo}' ya se intentó una vez; no se repite a ciegas.")
+    if verbo == "exportar":
+        # Un reporte no tiene registro objetivo que verificar: lo que lo acota son los filtros,
+        # que ya pasaron por el contrato al escribirse.
+        return _ok()
     if estado.registros_coincidentes is None:
         # Al crear aún se puede buscar y reintentar; en lo demás, sin verificar la tarea cierra.
         return _no(f"No se verificó el registro antes de '{verbo}'.", fallida=not contrato.crea)
