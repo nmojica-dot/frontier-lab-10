@@ -244,6 +244,24 @@ def test_llenar_campos_selecciona_todo_teclea_y_relee():
     correr(escenario)
 
 
+def test_llenar_campos_acepta_el_rotulo_de_pantalla_si_el_valor_sale_de_la_instruccion():
+    async def escenario():
+        contrato = ContratoCambios(
+            valores_permitidos={"nombre": ("Papelería Los Andes",), "ciudad": ("Pereira",)},
+            verbos_permitidos=frozenset({"guardar"}),
+        )
+        resp = [punto(200, 300), {"legible": True, "valor": "Papelería Los Andes"}]
+        async with entorno(resp, contrato) as (ctx, _, _):
+            r = await ejecutar(
+                ctx,
+                "llenar_campos",
+                {"campos": [{"campo": "Razón social o nombre", "valor": "Papelería Los Andes"}]},
+            )
+            assert r.ok
+
+    correr(escenario)
+
+
 def test_llenar_campos_detecta_que_el_valor_leido_no_coincide():
     async def escenario():
         contrato = ContratoCambios(

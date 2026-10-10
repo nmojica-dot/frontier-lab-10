@@ -511,6 +511,18 @@ _ESQUEMA_VALOR: dict[str, Any] = {
 }
 
 
+def _campo_del_contrato(contrato: ContratoCambios, rotulo: str, valor: str) -> str:
+    """El contrato nombra los campos por su sentido («nombre», «telefono») y la pantalla los
+    rotula distinto («Razón social o nombre»). Si el rótulo no está en el contrato, se usa el
+    campo cuyo valor permitido es exactamente este: el valor sí sale literal de la instrucción.
+    Solo se acepta si es único; si no, se deja el rótulo y B4 decide."""
+    permitidos = contrato.valores_permitidos
+    if rotulo in permitidos:
+        return rotulo
+    candidatos = [k for k, valores in permitidos.items() if valor in valores]
+    return candidatos[0] if len(candidatos) == 1 else rotulo
+
+
 async def llenar_campos(
     ctx: Contexto, *, campos: list[dict[str, str]], espero: str | None = None
 ) -> ResultadoHerramienta:
@@ -523,7 +535,11 @@ async def llenar_campos(
         tipo = "navegar" if _es_filtro_de_lectura(ctx.contrato, item["valor"]) else "escribir"
         decision = validar_accion(
             ctx.contrato,
-            Accion(tipo=tipo, campo=item["campo"], valor=item["valor"]),
+            Accion(
+                tipo=tipo,
+                campo=_campo_del_contrato(ctx.contrato, item["campo"], item["valor"]),
+                valor=item["valor"],
+            ),
             ctx.estado(),
             ctx.origen,
         )
