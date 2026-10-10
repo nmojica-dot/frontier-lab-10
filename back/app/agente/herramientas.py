@@ -61,6 +61,7 @@ class Contexto:
     # Contabilidad del modelo.
     costo: float = 0.0
     llamadas_modelo: int = 0
+    capturas_debug: list[bytes] | None = None
 
     def estado(self) -> EstadoCriterio:
         return EstadoCriterio(
@@ -100,6 +101,8 @@ async def captura_estable(ctx: Contexto) -> Imagen:
             break
         await asyncio.sleep(ctx.pausa_repintado)
         imagen = await ctx.cliente.capturar()
+    if ctx.capturas_debug is not None:  # solo en pruebas locales: ver lo que vio el agente
+        ctx.capturas_debug.append(imagen.a_png())
     return imagen
 
 
@@ -412,8 +415,7 @@ async def buscar_registro(
     vistos: set[tuple[tuple[str, str], ...]] = set()
     for variante in variantes:
         px, py = await _punto(ctx, f"el campo de filtro «{campo}»", x, y)
-        await ctx.cliente.clic(px, py)
-        await ctx.cliente.borrar_campo()  # sin esto el texto se concatena al anterior
+        await ctx.cliente.triple_clic(px, py)  # selecciona todo: si no, el texto se concatena
         await ctx.cliente.teclear(variante)
         await ctx.cliente.tecla("enter")
         filas, _ = await _leer_paginas(ctx)
@@ -422,6 +424,8 @@ async def buscar_registro(
             if clave not in vistos:
                 vistos.add(clave)
                 candidatos.append(fila)
+        if candidatos:
+            break  # con la primera variante ya hay filas: no se repite la búsqueda
 
     # El desempate de homónimos solo importa si la tarea puede cambiar algo. En una consulta
     # las filas son datos (p. ej. las facturas de un cliente), no registros que haya que
@@ -484,8 +488,7 @@ async def llenar_campos(
     for item in campos:
         nombre, valor = item["campo"], item["valor"]
         x, y = await _ubicar(ctx, f"el campo «{nombre}»")
-        await ctx.cliente.clic(x, y)
-        await ctx.cliente.borrar_campo()
+        await ctx.cliente.triple_clic(x, y)  # selecciona todo el campo antes de teclear
         await ctx.cliente.teclear(valor)
         if _es_filtro_de_lectura(ctx.contrato, valor):
             leidos[nombre] = valor  # un filtro de búsqueda: no hay nada que comprobar ni guardar

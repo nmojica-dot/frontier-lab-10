@@ -297,6 +297,7 @@ async def ejecutar_tarea(
     costo_max: float,
     modelo: Modelo | None = None,
     abrir_cliente: Callable[..., ClienteRFB] = ClienteRFB,
+    capturas_debug: list[bytes] | None = None,
 ) -> None:
     """Corre una tarea completa y deja su estado final en el store. Nunca lanza."""
     # La contraseña del escritorio y la llave del modelo no pueden salir en ningún texto.
@@ -314,6 +315,7 @@ async def ejecutar_tarea(
                     contrato=contrato,
                     origen="chat" if canal == "chat" else "api",
                     secretos=secretos,
+                    capturas_debug=capturas_debug,
                 )
                 estado, resumen = await correr_ciclo(
                     ctx, instruccion=instruccion, task_id=task_id, store=store, cuadros=cuadros

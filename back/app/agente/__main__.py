@@ -64,6 +64,7 @@ async def main(arg: str, reset: bool, carpeta: Path) -> None:
         costo_max=float(os.environ.get("COSTO_MAX_POR_TAREA", "0.50")),
     )
     inicio = time.monotonic()
+    debug: list[bytes] = []
     await ejecutar_tarea(
         task_id="local",
         instruccion=caso["instruccion"],
@@ -75,7 +76,11 @@ async def main(arg: str, reset: bool, carpeta: Path) -> None:
         api_key=os.environ["OPENROUTER_API_KEY"],
         costo_max=float(os.environ.get("COSTO_MAX_POR_TAREA", "0.50")),
         modelo=modelo,
+        capturas_debug=debug,
     )
+    carpeta_debug = Path(tempfile.mkdtemp(prefix="navegante-debug-"))
+    for i, png in enumerate(debug, 1):
+        (carpeta_debug / f"{i:02d}.png").write_bytes(png)
     final = store.obtener("local")
     print(f"\n--- {caso['id']}: {caso['instruccion']}")
     for e in store.eventos_desde("local"):
@@ -90,6 +95,7 @@ async def main(arg: str, reset: bool, carpeta: Path) -> None:
         f"modelo: {modelo.modelo_id} | tiempo: {time.monotonic() - inicio:.0f} s | "
         f"costo: US$ {modelo.costo_acumulado:.4f} | pasos: {n_pasos}"
     )
+    print(f"capturas internas: {carpeta_debug} ({len(debug)})")
     if token and caso["id"] != "libre":
         print("check:", _llamar("POST", _base_http(url) + "/__check", token, caso))
 

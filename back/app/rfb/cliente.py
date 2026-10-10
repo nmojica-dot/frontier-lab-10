@@ -238,21 +238,19 @@ class ClienteRFB:
         await self._ejecutar(pulsar, repetible=False)
         await asyncio.sleep(self._espera)
 
-    async def borrar_campo(self, cuantos: int = 80) -> None:
-        """Vacía el campo con foco sin usar modificadores: End y `cuantos` BackSpace.
+    async def triple_clic(self, x: int, y: int) -> None:
+        """Tres clics seguidos: en un campo de texto seleccionan todo, y lo que se teclee
+        después lo reemplaza. `ctrl+a` y BackSpace no hicieron efecto en el navegador remoto y
+        lo nuevo se concatenó a lo viejo ("Ferretería RuFerreteria Ru")."""
+        self._validar(x, y)
 
-        `ctrl+a` no seleccionó el texto en el navegador remoto y lo nuevo se concatenó
-        a lo viejo ("Ferretería RuFeFerretería Ruiz"), así que no se depende de él."""
-        fin = keysyms_de_combinacion("end")[0]
-        borrar = keysyms_de_combinacion("backspace")[0]
+        async def triple() -> None:
+            for i in range(3):
+                await self._clic(x, y)
+                if i < 2:
+                    await asyncio.sleep(0.05)
 
-        async def vaciar() -> None:
-            for s in (fin, *([borrar] * cuantos)):
-                await self._tecla(s, True)
-                await self._tecla(s, False)
-                await asyncio.sleep(self._pausa_tecla)
-
-        await self._ejecutar(vaciar, repetible=False)
+        await self._ejecutar(triple, repetible=False)
         await asyncio.sleep(self._espera)
 
     # --- núcleo ---

@@ -164,18 +164,17 @@ def test_buscar_registro_prueba_con_y_sin_tilde_y_cuenta():
         )
         resp = [
             punto(100, 100),
-            tabla({"nombre": "José Pérez", "nit": "1"}),
+            tabla(),  # con tilde no hay filas: se prueba la variante sin tilde
             punto(100, 100),
-            tabla({"nombre": "José Pérez", "nit": "1"}, {"nombre": "Jose Perez", "nit": "2"}),
+            tabla({"nombre": "Jose Perez", "nit": "2"}, {"nombre": "Jose Perez", "nit": "2"}),
         ]
         async with entorno(resp, contrato) as (ctx, srv, _):
             r = await ejecutar(ctx, "buscar_registro", {"campo": "Nombre", "texto": "José Pérez"})
             assert r.ok
             assert r.evidencia["variantes"] == ["José Pérez", "Jose Perez"]
-            assert len(r.evidencia["candidatos"]) == 2  # sin duplicar la fila repetida
-            assert ctx.registros_coincidentes == 1
-            assert "2 candidatos" in r.observacion
-            assert 0xFF08 in [e[1] for e in srv.eventos]  # vació el campo antes de teclear
+            assert len(r.evidencia["candidatos"]) == 1  # sin duplicar la fila repetida
+            assert "1 candidatos" in r.observacion
+            assert tipos(srv).count("puntero_abajo") == 6  # triple clic antes de cada variante
 
     correr(escenario)
 
@@ -207,11 +206,8 @@ def test_llenar_campos_selecciona_todo_teclea_y_relee():
             )
             assert r.ok and r.evidencia["leidos"] == {"Ciudad": "Medellín"}
             teclas = [e[1] for e in srv.eventos if e[0] == "tecla_abajo"]
-            assert (
-                teclas[0] == 0xFF57
-            )  # End, luego 80 BackSpace: el campo se vacía antes de teclear
-            assert teclas[1:81] == [0xFF08] * 80
-            assert len(teclas) == 1 + 80 + len("Medellín")
+            assert tipos(srv).count("puntero_abajo") == 3  # triple clic: selecciona todo
+            assert len(teclas) == len("Medellín")  # y teclea encima, sin teclas especiales
 
     correr(escenario)
 
