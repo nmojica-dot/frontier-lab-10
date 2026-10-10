@@ -303,8 +303,8 @@ _ESQUEMA_TABLA: dict[str, Any] = {
 
 _PREGUNTA_TABLA = (
     "Lee la tabla de resultados de la captura. En `columnas` pon los nombres del encabezado, "
-    "en orden. Cuenta las filas de datos que se ven (sin el encabezado) y ponlo en "
-    "`filas_visibles`. Luego da TODAS esas filas en `filas`, sin saltarte ninguna: cada fila "
+    "en orden. En `filas_visibles` pon cuántas filas de datos hay (sin "
+    "encabezado ni paginación). Luego da TODAS esas filas en `filas`, sin saltarte ninguna: cada fila "
     "es una lista con el texto exacto de cada celda en el mismo orden que `columnas` "
     "(respeta tildes). En `anterior` y `siguiente` da el centro del "
     "botón de página anterior / siguiente si está activo; si no existe o está deshabilitado "
@@ -324,21 +324,9 @@ def _filas_de(datos: dict[str, Any]) -> list[dict[str, str]]:
 
 
 async def _leer_pagina(ctx: Contexto) -> tuple[list[dict[str, str]], dict[str, Any]]:
-    """Una página de la tabla. Si el modelo dice ver más filas de las que transcribió, se
-    repite la lectura una vez y se queda con la más completa: se le saltaban filas."""
-    mejor: list[dict[str, str]] = []
-    mejor_datos: dict[str, Any] = {}
-    for _ in range(2):
-        imagen = await captura_estable(ctx)
-        datos = await _preguntar(ctx, _PREGUNTA_TABLA, _ESQUEMA_TABLA, imagen)
-        filas = _filas_de(datos)
-        if len(filas) > len(mejor) or not mejor_datos:
-            mejor, mejor_datos = filas, datos
-        visibles = datos.get("filas_visibles")
-        if not isinstance(visibles, int) or len(mejor) >= visibles:
-            break
-        logger.warning("tabla: vi %s filas y transcribí %s; repito", visibles, len(filas))
-    return mejor, mejor_datos
+    imagen = await captura_estable(ctx)
+    datos = await _preguntar(ctx, _PREGUNTA_TABLA, _ESQUEMA_TABLA, imagen)
+    return _filas_de(datos), datos
 
 
 def _punto_de(datos: dict[str, Any], clave: str) -> tuple[int, int] | None:
@@ -364,6 +352,8 @@ async def _leer_paginas(ctx: Contexto) -> tuple[list[dict[str, str]], int]:
     filas: list[dict[str, str]] = []
     previa: list[dict[str, str]] | None = None
     paginas = 0
+    boton: tuple[int, int] | None = None  # último "Siguiente" que dio el modelo
+    tamano = len(actuales)  # una página llena tiene tantas filas como la primera
     while paginas < ctx.max_paginas:
         if previa is not None and actuales == previa:
             return filas, paginas  # "Siguiente" no cambió nada: no hay más páginas
@@ -371,8 +361,14 @@ async def _leer_paginas(ctx: Contexto) -> tuple[list[dict[str, str]], int]:
         filas.extend(actuales)
         previa = actuales
         logger.warning("tabla: página %s con %s filas", paginas, len(actuales))
-        if (adelante := _punto_de(datos, "siguiente")) is None:
+        adelante = _punto_de(datos, "siguiente")
+        if adelante is None and boton is not None and len(actuales) >= tamano:
+            # El modelo a veces no ve el botón activo: en una página llena se prueba donde
+            # estaba; si no avanza, la página repetida corta el ciclo.
+            adelante = boton
+        if adelante is None:
             return filas, paginas
+        boton = adelante
         await ctx.cliente.clic(*adelante)
         actuales, datos = await _leer_pagina(ctx)
     raise ErrorHerramienta(f"La tabla tiene más de {ctx.max_paginas} páginas; no se leyó completa.")

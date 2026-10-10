@@ -124,14 +124,14 @@ def test_tecla_y_tecla_invalida():
 def test_leer_tabla_recorre_todas_las_paginas():
     async def escenario():
         resp = [
-            tabla({"nombre": "A"}, siguiente={"x": 900, "y": 700}),
-            tabla({"nombre": "B"}, siguiente={"x": 900, "y": 700}),
+            tabla({"nombre": "A"}, {"nombre": "A2"}, siguiente={"x": 900, "y": 700}),
+            tabla({"nombre": "B"}, {"nombre": "B2"}, siguiente={"x": 900, "y": 700}),
             tabla({"nombre": "C"}),
         ]
         async with entorno(resp) as (ctx, srv, _):
             r = await ejecutar(ctx, "leer_tabla", {})
             assert r.ok and r.evidencia["paginas"] == 3
-            assert [f["nombre"] for f in r.evidencia["filas"]] == ["A", "B", "C"]
+            assert [f["nombre"] for f in r.evidencia["filas"]] == ["A", "A2", "B", "B2", "C"]
             assert tipos(srv).count("puntero_abajo") == 2
 
     correr(escenario)
@@ -150,6 +150,21 @@ def test_leer_tabla_acepta_filas_como_listas_de_celdas():
             r = await ejecutar(ctx, "leer_tabla", {})
             assert r.evidencia["filas"][1] == {"Código": "FV-2", "Estado": "Pagada"}
             assert "Vencida=1" in r.observacion
+
+    correr(escenario)
+
+
+def test_leer_tabla_prueba_el_siguiente_conocido_si_el_modelo_no_lo_ve_en_pagina_llena():
+    async def escenario():
+        resp = [
+            tabla({"n": "A"}, {"n": "A2"}, siguiente={"x": 900, "y": 700}),
+            tabla({"n": "B"}, {"n": "B2"}),  # llena, pero el modelo no vio el botón
+            tabla({"n": "C"}),
+        ]
+        async with entorno(resp) as (ctx, srv, _):
+            r = await ejecutar(ctx, "leer_tabla", {})
+            assert [f["n"] for f in r.evidencia["filas"]] == ["A", "A2", "B", "B2", "C"]
+            assert tipos(srv).count("puntero_abajo") == 2
 
     correr(escenario)
 
