@@ -1,0 +1,4 @@
+*.db
+*.db-journal
+.pytest_cache/
+.ruff_cache/

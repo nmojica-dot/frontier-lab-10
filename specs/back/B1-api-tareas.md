@@ -1,6 +1,6 @@
 # Spec: B1 · API de tareas
 
-> Estado: en exploración
+> Estado: construido en local (falta desplegar en Railway)
 > Última actualización: 2026-10-10 · PRD: §8 P0 back, §14
 
 ## 1. Qué es y por qué
@@ -8,7 +8,9 @@ Servicio FastAPI desplegado que cumple el contrato del reto y el [contrato back�
 
 ## 2. Decisiones firmes
 - **Stack:** Python + FastAPI, tareas en segundo plano con `asyncio`, estado en memoria + SQLite (tareas y eventos). Sin Redis.
-- **Rutas:** las de la tabla del contrato. Token por dependencia de FastAPI; sin token o inválido → 401 en todas.
+- **Rutas:** en B1 solo `/health`, `POST /tasks` y `GET /tasks/{id}`. El SSE, la pantalla, las capturas y `/respuesta` van en B6 (decidido con Nico). Token por dependencia de FastAPI; sin token o inválido → 401 en todas.
+- **Worker de mentira:** emite `estado`, `paso` y `fin`, y termina siempre `fallida` ("la tarea no se ejecutó"). Nunca `terminada`: sin ejecutar nada no hay evidencia, y un falso éxito es el peor error.
+- **Arranque:** `uvicorn app.main:create_app --factory`. Sin `API_TOKEN` no arranca, para no dejar rutas abiertas.
 - **`POST /tasks`:** valida, crea `task_id`, lanza el worker y responde. Nada de trabajo pesado antes de responder (< 2 s).
 - **Un worker por tarea**, con reloj propio (ver B3). Una sola tarea activa por escritorio.
 - **Eventos:** cada evento se guarda en SQLite con `seq` y se publica a los suscriptores SSE. `Last-Event-ID` lee desde la tabla.
