@@ -5,6 +5,8 @@ description = "API y agente de Navegante"
 requires-python = ">=3.12"
 dependencies = [
     "fastapi[standard]>=0.115",
+    "pillow>=12.3.0",
+    "websockets>=17.2",
 ]
 
 [dependency-groups]
